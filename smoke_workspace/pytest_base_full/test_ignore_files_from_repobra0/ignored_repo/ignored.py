@@ -1,0 +1,2 @@
+def hidden():
+    return True

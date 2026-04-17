@@ -1,0 +1,2 @@
+def worker():
+    return True

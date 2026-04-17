@@ -1,0 +1,54 @@
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+
+# RepoBrain local state
+.repobrain/
+
+# Virtual environments and local Python versions
+.venv/
+venv/
+env/
+.python-version
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+
+# Test, coverage, lint, and type-check caches
+.pytest_cache/
+.pytest_tmp/
+.pytest_tmp_review/
+pytest_tmp/
+pytest_tmp_run/
+pytest-cache-files-*
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+
+# Build and packaging outputs
+build/
+dist/
+site/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+
+# Logs and temporary local artifacts
+*.log
+*.tmp
+*.temp
+
+# Editor and OS noise
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

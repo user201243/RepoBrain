@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "repobrain"
+version = "0.1.0"
+description = "Local-first codebase memory and grounding harness for AI coding assistants."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+  { name = "RepoBrain Contributors" }
+]
+keywords = ["ai", "code-search", "rag", "mcp", "developer-tools", "static-analysis"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Indexing",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/repobrain/repobrain"
+Documentation = "https://github.com/repobrain/repobrain#readme"
+Issues = "https://github.com/repobrain/repobrain/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2"]
+mcp = ["mcp>=1.6.0"]
+tree-sitter = ["tree-sitter>=0.23", "tree-sitter-language-pack>=0.2.0"]
+providers = ["google-genai>=1.0.0", "openai>=1.0.0", "voyageai>=0.2.0", "cohere>=5.0.0"]
+
+[project.scripts]
+repobrain = "repobrain.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/repobrain"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "--basetemp=./pytest_tmp -p no:cacheprovider"
