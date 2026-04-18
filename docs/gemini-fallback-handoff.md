@@ -9,8 +9,10 @@ The workstream later expanded to cover the local browser UI as well: the web fro
 ## Status
 
 - Date: 2026-04-18
-- Status: in progress, core fallback implementation complete
-- Owner context: local workspace update, no release tag cut yet
+- Status: implementation complete for the current feature cycle, branch pushed, release/tag still not cut
+- Owner context: local workspace update on branch `feat-web-theme-release-diagnostics`
+- Latest commit at handoff time: `d678dfb` (`feat: add Gemini failover and themed React diagnostics`)
+- Remote branch: `origin/feat-web-theme-release-diagnostics`
 
 ## What Was Completed
 
