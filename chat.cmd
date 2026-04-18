@@ -1,5 +1,6 @@
 @echo off
 setlocal
+title RepoBrain Grounded Chat
 
 cd /d "%~dp0"
 set "PYTHONPATH=%CD%\src"

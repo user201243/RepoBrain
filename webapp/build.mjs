@@ -24,6 +24,7 @@ await build({
     ".ts": "ts",
     ".tsx": "tsx",
     ".css": "css",
+    ".svg": "dataurl",
   },
 });
 

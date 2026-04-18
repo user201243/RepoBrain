@@ -31,6 +31,7 @@ Text output includes:
 - call-chain hints
 - edit targets
 - warnings and next questions
+- TTY-only emphasis for headings, commands, and status markers without changing plain redirected output or web payload text
 
 `repobrain init --repo /path/to/your-project` remembers the active repo. After that, users can run `index`, `query`, `chat`, and `report` without repeating the repo path.
 
@@ -50,6 +51,19 @@ repobrain chat
 
 Chat commands:
 
+- `/query <question>`: run the default grounded retrieval path explicitly
+- `/evidence <question>`: ask for grounded evidence without switching out of chat
+- `/map <question>`: map the likely route/service/job flow for a topic
+- `/focus <topic>`: pin a temporary chat focus that gets prepended to later retrieval commands
+- `/focus`: show the active focus
+- `/focus clear`: remove the active focus
+- `/summary`: show the stored repo memory summary, including notes, recent asks, and hot files
+- `/remember <note>`: append a manual note into the repo memory summary
+- `/remember clear`: clear manual notes while keeping automatic evidence history
+- `/projects`: list tracked repos in the lightweight workspace registry
+- `/add <path>`: track a repo and make it active for the next commands
+- `/use <repo>`: switch the active tracked repo without leaving chat
+- `/multi <question>`: run the same grounded query across every tracked repo and compare evidence per project
 - `/trace <question>`: trace route/service/job-like flows
 - `/impact <question>`: inspect likely affected surfaces
 - `/targets <question>`: rank files to inspect or edit
@@ -60,6 +74,18 @@ Chat commands:
 - `/json`: switch chat output to raw JSON
 - `/text`: switch chat output back to readable text
 - `/exit`: quit
+
+Chat now persists a rolling repo summary so useful findings, hot files, warnings, and manual notes survive between sessions.
+
+Standalone workspace commands:
+
+```bash
+repobrain workspace add /path/to/project --format text
+repobrain workspace list --format text
+repobrain workspace summary --format text
+repobrain workspace remember "auth callback is the critical flow" --format text
+repobrain workspace use my-project --format text
+```
 
 On Windows, `chat.cmd` launches the same flow and prefers the project virtualenv.
 
@@ -93,6 +119,7 @@ repobrain report --output ./repobrain-report.html
 
 The report includes:
 
+- a RepoBrain control-room style overview with local-only posture and core capability lanes
 - review score and readiness
 - top project findings
 - what to fix first

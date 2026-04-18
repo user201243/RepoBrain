@@ -2,16 +2,42 @@ from __future__ import annotations
 
 import argparse
 import webbrowser
+from dataclasses import dataclass
 from pathlib import Path
 
 from repobrain.active_repo import read_active_repo, resolve_repo_root, write_active_repo
 from repobrain.cleanup import cleanup_demo_artifacts
 from repobrain.engine.core import RepoBrainEngine
 from repobrain.mcp_server import serve_mcp
-from repobrain.models import ReviewFocus
+from repobrain.models import QueryResult, ReviewFocus
 from repobrain.release import inspect_release_artifacts
 from repobrain.web import serve_web
-from repobrain.ux import build_report, cli_wordmark, payload_to_json, payload_to_text, quickstart_text
+from repobrain.ux import (
+    build_report,
+    chat_help_text,
+    chat_intro,
+    chat_prompt,
+    payload_to_json,
+    payload_to_text,
+    quickstart_text,
+    render_cli_wordmark,
+)
+from repobrain.workspace import (
+    add_workspace_project,
+    clear_workspace_notes,
+    project_context_hint,
+    remember_query_result,
+    remember_workspace_note,
+    set_current_workspace_project,
+    workspace_projects_payload,
+    workspace_query_payload,
+    workspace_summary_payload,
+)
+
+
+@dataclass
+class ChatSessionState:
+    focus: str | None = None
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -69,6 +95,34 @@ def _parser() -> argparse.ArgumentParser:
     chat_parser = subparsers.add_parser("chat", help="Start an interactive local RepoBrain question loop.")
     chat_parser.add_argument("--repo", default=None)
 
+    workspace_parser = subparsers.add_parser("workspace", help="Manage tracked repos and persisted repo memory.")
+    workspace_subparsers = workspace_parser.add_subparsers(dest="workspace_command", required=True)
+
+    workspace_list_parser = workspace_subparsers.add_parser("list", help="List tracked repos and show the active one.")
+    _add_format_argument(workspace_list_parser)
+
+    workspace_add_parser = workspace_subparsers.add_parser("add", help="Track a repo for later chat and cross-repo queries.")
+    workspace_add_parser.add_argument("repo")
+    workspace_add_parser.add_argument("--no-activate", action="store_true", help="Track the repo without making it active.")
+    _add_format_argument(workspace_add_parser)
+
+    workspace_use_parser = workspace_subparsers.add_parser("use", help="Switch the active tracked repo.")
+    workspace_use_parser.add_argument("project")
+    _add_format_argument(workspace_use_parser)
+
+    workspace_summary_parser = workspace_subparsers.add_parser("summary", help="Show stored summary memory for a tracked repo.")
+    workspace_summary_parser.add_argument("project", nargs="?")
+    _add_format_argument(workspace_summary_parser)
+
+    workspace_remember_parser = workspace_subparsers.add_parser("remember", help="Persist a manual note for a tracked repo.")
+    workspace_remember_parser.add_argument("note")
+    workspace_remember_parser.add_argument("--project", default=None)
+    _add_format_argument(workspace_remember_parser)
+
+    workspace_clear_parser = workspace_subparsers.add_parser("clear-notes", help="Clear manual notes for a tracked repo.")
+    workspace_clear_parser.add_argument("--project", default=None)
+    _add_format_argument(workspace_clear_parser)
+
     report_parser = subparsers.add_parser("report", help="Generate a local HTML status report.")
     report_parser.add_argument("--repo", default=None)
     report_parser.add_argument("--output", default=None)
@@ -107,19 +161,56 @@ def _add_format_argument(parser: argparse.ArgumentParser) -> None:
 
 def _dump(payload: object, output_format: str = "json") -> None:
     if output_format == "text":
-        print(payload_to_text(payload))
+        print(payload_to_text(payload, styled=True))
         return
     print(payload_to_json(payload))
 
 
+def _chat_focus_status(state: ChatSessionState) -> str:
+    return f"Active focus: {state.focus}" if state.focus else "Active focus: none"
+
+
+def _chat_context(repo_root: Path, state: ChatSessionState) -> str | None:
+    return project_context_hint(repo_root, focus=state.focus)
+
+
+def _handle_focus_command(raw_query: str, state: ChatSessionState) -> str:
+    focus_value = raw_query.removeprefix("/focus").strip()
+    if not focus_value:
+        return _chat_focus_status(state)
+    if focus_value.lower() in {"clear", "none", "off", "reset"}:
+        state.focus = None
+        return "Focus cleared."
+    state.focus = focus_value
+    return _chat_focus_status(state)
+
+
+def _run_chat_query(engine: RepoBrainEngine, query: str, *, state: ChatSessionState, mode: str = "query") -> QueryResult:
+    context = _chat_context(engine.config.resolved_repo_root, state)
+    if mode == "trace":
+        result = engine.trace(query, context=context)
+    elif mode == "impact":
+        result = engine.impact(query, context=context)
+    elif mode == "targets":
+        result = engine.targets(query, context=context)
+    else:
+        result = engine.query(query, context=context)
+    remember_query_result(engine.config.resolved_repo_root, query=query, result=result)
+    return result
+
+
 def _chat(engine: RepoBrainEngine) -> int:
     output_format = "text"
-    print(cli_wordmark())
+    current_engine = engine
+    repo_root = current_engine.config.resolved_repo_root
+    add_workspace_project(repo_root, make_current=True)
+    session_state = ChatSessionState()
+    print(render_cli_wordmark())
     print()
-    print("RepoBrain chat is local-only. Type /help for commands, /json for raw payloads, or /exit to quit.")
+    print(chat_intro(repo_root, styled=True))
     while True:
         try:
-            raw_query = input("repobrain> ").strip()
+            raw_query = input(chat_prompt(repo_root)).strip()
         except (EOFError, KeyboardInterrupt):
             print()
             return 0
@@ -130,7 +221,48 @@ def _chat(engine: RepoBrainEngine) -> int:
         if lowered in {"/exit", "exit", "quit", ":q"}:
             return 0
         if lowered == "/help":
-            print("Commands: /trace <q>, /impact <q>, /targets <q>, /doctor, /provider-smoke, /index, /review, /baseline, /ship, /report, /json, /text, /exit")
+            print(chat_help_text(styled=True))
+            continue
+        if lowered == "/focus" or raw_query.startswith("/focus "):
+            print(_handle_focus_command(raw_query, session_state))
+            continue
+        if lowered == "/projects":
+            _dump(workspace_projects_payload(), output_format)
+            continue
+        if lowered == "/summary":
+            _dump(workspace_summary_payload(repo_root), output_format)
+            continue
+        if lowered == "/remember clear":
+            _dump(clear_workspace_notes(repo_root), output_format)
+            continue
+        if lowered.startswith("/remember "):
+            _dump(remember_workspace_note(raw_query.removeprefix("/remember ").strip(), repo_root), output_format)
+            continue
+        if lowered.startswith("/add "):
+            added_repo = Path(raw_query.removeprefix("/add ").strip()).expanduser().resolve()
+            _dump(add_workspace_project(added_repo), output_format)
+            write_active_repo(added_repo)
+            continue
+        if lowered.startswith("/use "):
+            project_ref = raw_query.removeprefix("/use ").strip()
+            payload = set_current_workspace_project(project_ref)
+            selected_repo = Path(str(payload.get("current_repo", ""))).expanduser().resolve()
+            current_engine = RepoBrainEngine(selected_repo)
+            repo_root = selected_repo
+            write_active_repo(selected_repo)
+            print(chat_intro(repo_root, styled=True))
+            _dump(payload, output_format)
+            continue
+        if lowered.startswith("/multi "):
+            multi_query = raw_query.removeprefix("/multi ").strip()
+            payload = workspace_query_payload(
+                multi_query,
+                current_repo=repo_root,
+                context=_chat_context(repo_root, session_state),
+                engine_factory=RepoBrainEngine,
+                focus=session_state.focus,
+            )
+            _dump(payload, output_format)
             continue
         if lowered == "/json":
             output_format = "json"
@@ -143,29 +275,35 @@ def _chat(engine: RepoBrainEngine) -> int:
 
         try:
             if lowered == "/doctor":
-                _dump(engine.doctor(), output_format)
+                _dump(current_engine.doctor(), output_format)
             elif lowered == "/provider-smoke":
-                _dump(engine.provider_smoke(), output_format)
+                _dump(current_engine.provider_smoke(), output_format)
             elif lowered == "/index":
-                _dump(engine.index_repository(), output_format)
+                _dump(current_engine.index_repository(), output_format)
             elif lowered == "/review":
-                _dump(engine.review(), output_format)
+                _dump(current_engine.review(), output_format)
             elif lowered == "/baseline":
-                report = engine.review(compare_baseline=False)
-                _dump(engine.save_review_baseline(report), output_format)
+                report = current_engine.review(compare_baseline=False)
+                _dump(current_engine.save_review_baseline(report), output_format)
             elif lowered == "/ship":
-                _dump(engine.ship(), output_format)
+                _dump(current_engine.ship(), output_format)
             elif lowered == "/report":
-                report_path = build_report(engine)
+                report_path = build_report(current_engine)
                 print(f"RepoBrain report written to: {report_path}")
+            elif raw_query.startswith("/evidence "):
+                _dump(_run_chat_query(current_engine, raw_query.removeprefix("/evidence ").strip(), state=session_state), output_format)
+            elif raw_query.startswith("/map "):
+                _dump(_run_chat_query(current_engine, raw_query.removeprefix("/map ").strip(), state=session_state, mode="trace"), output_format)
+            elif raw_query.startswith("/query "):
+                _dump(_run_chat_query(current_engine, raw_query.removeprefix("/query ").strip(), state=session_state), output_format)
             elif raw_query.startswith("/trace "):
-                _dump(engine.trace(raw_query.removeprefix("/trace ").strip()), output_format)
+                _dump(_run_chat_query(current_engine, raw_query.removeprefix("/trace ").strip(), state=session_state, mode="trace"), output_format)
             elif raw_query.startswith("/impact "):
-                _dump(engine.impact(raw_query.removeprefix("/impact ").strip()), output_format)
+                _dump(_run_chat_query(current_engine, raw_query.removeprefix("/impact ").strip(), state=session_state, mode="impact"), output_format)
             elif raw_query.startswith("/targets "):
-                _dump(engine.targets(raw_query.removeprefix("/targets ").strip()), output_format)
+                _dump(_run_chat_query(current_engine, raw_query.removeprefix("/targets ").strip(), state=session_state, mode="targets"), output_format)
             else:
-                _dump(engine.query(raw_query), output_format)
+                _dump(_run_chat_query(current_engine, raw_query, state=session_state), output_format)
         except Exception as exc:
             _dump({"error": str(exc), "hint": "Run /index if the repository has not been indexed yet."}, output_format)
 
@@ -175,8 +313,35 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "quickstart":
-        print(quickstart_text())
+        print(quickstart_text(styled=True))
         return 0
+    if args.command == "workspace":
+        workspace_format = getattr(args, "format", "json")
+        if args.workspace_command == "list":
+            _dump(workspace_projects_payload(), workspace_format)
+            return 0
+        if args.workspace_command == "add":
+            payload = add_workspace_project(args.repo, make_current=not args.no_activate)
+            if not args.no_activate:
+                write_active_repo(Path(args.repo).expanduser().resolve())
+            _dump(payload, workspace_format)
+            return 0
+        if args.workspace_command == "use":
+            payload = set_current_workspace_project(args.project)
+            write_active_repo(Path(str(payload.get("current_repo", ""))).expanduser().resolve())
+            _dump(payload, workspace_format)
+            return 0
+        if args.workspace_command == "summary":
+            _dump(workspace_summary_payload(args.project), workspace_format)
+            return 0
+        if args.workspace_command == "remember":
+            _dump(remember_workspace_note(args.note, args.project), workspace_format)
+            return 0
+        if args.workspace_command == "clear-notes":
+            _dump(clear_workspace_notes(args.project), workspace_format)
+            return 0
+        parser.error(f"Unsupported workspace command: {args.workspace_command}")
+        return 2
 
     if args.command == "release-check":
         project_root = Path(args.repo).expanduser().resolve() if args.repo else Path.cwd()

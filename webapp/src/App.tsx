@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import markUrl from "./assets/repobrain-mark.svg";
 
 type Locale = "en" | "vi";
 type Theme = "light" | "dark";
@@ -109,9 +110,9 @@ type ActivityEntry = {
 
 const copy = {
   en: {
-    brand: "RepoBrain Web",
+    brand: "RepoBrain",
     subtitle:
-      "Local React workspace for importing a project, indexing it once, and running grounded codebase actions without repeating repo paths.",
+      "Local-first codebase memory for indexing one project, tracing real flows, and ranking safer edit targets with evidence.",
     language: "Language",
     theme: "Theme",
     english: "English",
@@ -200,9 +201,9 @@ const copy = {
     disabledUntilImport: "Import a repo to unlock actions and grounded queries.",
   },
   vi: {
-    brand: "RepoBrain Web",
+    brand: "RepoBrain",
     subtitle:
-      "Workspace React local để import dự án, index một lần, và chạy các tác vụ codebase có grounding mà không cần lặp lại đường dẫn repo.",
+      "Bộ nhớ codebase local-first để index một dự án, trace đúng flow, và xếp hạng edit target an toàn hơn dựa trên evidence.",
     language: "Ngôn ngữ",
     theme: "Giao diện",
     english: "Tiếng Anh",
@@ -646,8 +647,24 @@ export function App() {
               </div>
             </div>
           </div>
-          <h1>{t.brand}</h1>
-          <p className="lead">{t.subtitle}</p>
+          <div className="brand-lockup">
+            <img className="brand-mark" src={markUrl} alt="RepoBrain mark" />
+            <div className="brand-copy">
+              <span className="brand-kicker">grounded codebase memory</span>
+              <h1 className="brand-wordmark" aria-label={t.brand}>
+                <span className="brand-word brand-word-repo">Repo</span>
+                <span className="brand-word brand-word-brain">Brain</span>
+              </h1>
+              <p className="lead">{t.subtitle}</p>
+            </div>
+          </div>
+          <div className="brand-rail" aria-label="RepoBrain capabilities">
+            <span className="rail-pill">{labelForAction(locale, "query")}</span>
+            <span className="rail-pill">{labelForAction(locale, "trace")}</span>
+            <span className="rail-pill">{labelForAction(locale, "targets")}</span>
+            <span className="rail-pill">{t.review}</span>
+            <span className="rail-pill">{t.ship}</span>
+          </div>
           <div className="info-strip">
             <div>
               <span className="eyebrow">{t.interfaceStatus}</span>

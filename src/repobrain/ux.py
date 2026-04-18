@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import html
 import json
+import os
+import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,7 +19,12 @@ def payload_to_json(payload: object) -> str:
     return json.dumps(payload, indent=2)
 
 
-def payload_to_text(payload: object) -> str:
+def payload_to_text(payload: object, *, styled: bool = False) -> str:
+    text = _payload_to_text_plain(payload)
+    return _style_terminal_block(text) if styled else text
+
+
+def _payload_to_text_plain(payload: object) -> str:
     if isinstance(payload, QueryResult):
         return query_result_to_text(payload)
     if isinstance(payload, ReviewReport):
@@ -28,6 +36,12 @@ def payload_to_text(payload: object) -> str:
     if isinstance(payload, dict):
         if "embedding_smoke" in payload and "reranker_smoke" in payload:
             return provider_smoke_to_text(payload)
+        if payload.get("kind") == "workspace_projects":
+            return workspace_projects_to_text(payload)
+        if payload.get("kind") == "workspace_summary":
+            return workspace_summary_to_text(payload)
+        if payload.get("kind") == "workspace_query":
+            return workspace_query_to_text(payload)
         if payload.get("kind") == "demo_clean":
             return demo_clean_to_text(payload)
         if payload.get("kind") == "release_check":
@@ -429,6 +443,118 @@ def benchmark_to_text(payload: dict[str, Any]) -> str:
     )
 
 
+def workspace_projects_to_text(payload: dict[str, Any]) -> str:
+    projects = payload.get("projects", []) if isinstance(payload.get("projects"), list) else []
+    lines = [
+        "RepoBrain Workspace",
+        f"Current repo: {payload.get('current_repo') or 'none'}",
+        f"Tracked repos: {payload.get('project_count', len(projects))}",
+    ]
+    if payload.get("message"):
+        lines.extend(["", str(payload.get("message"))])
+    if not projects:
+        lines.extend(["", "No tracked repos yet.", "Try: repobrain workspace add /path/to/project --format text"])
+        return "\n".join(lines)
+
+    lines.append("")
+    for index, project in enumerate(projects, start=1):
+        if not isinstance(project, dict):
+            continue
+        active_suffix = " [active]" if project.get("active") else ""
+        lines.append(f"{index}. {project.get('name')}{active_suffix}")
+        lines.append(f"   {project.get('repo_root')}")
+        summary = str(project.get("summary", "")).strip()
+        if summary:
+            lines.append(f"   summary: {summary}")
+        recent_queries = project.get("recent_queries", [])
+        if isinstance(recent_queries, list) and recent_queries:
+            lines.append(f"   recent: {' | '.join(str(item) for item in recent_queries[-2:])}")
+    lines.extend(["", "Tip: use `/use <repo>` in chat or `repobrain workspace use <repo>` in CLI."])
+    return "\n".join(lines)
+
+
+def workspace_summary_to_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "RepoBrain Memory Summary",
+        f"Repo: {payload.get('repo_root')}",
+        f"Name: {payload.get('name')}",
+    ]
+    if payload.get("message"):
+        lines.extend(["", str(payload.get("message"))])
+    summary = str(payload.get("summary", "")).strip()
+    lines.extend(["", f"Summary: {summary or 'No stored summary yet.'}"])
+
+    manual_notes = payload.get("manual_notes", [])
+    if isinstance(manual_notes, list) and manual_notes:
+        lines.extend(["", "Manual notes:"])
+        lines.extend(f"- {item}" for item in manual_notes[-4:])
+
+    recent_queries = payload.get("recent_queries", [])
+    if isinstance(recent_queries, list) and recent_queries:
+        lines.extend(["", "Recent asks:"])
+        lines.extend(f"- {item}" for item in recent_queries[-4:])
+
+    top_files = payload.get("top_files", [])
+    if isinstance(top_files, list) and top_files:
+        lines.extend(["", "Hot files:"])
+        lines.extend(f"- {item}" for item in top_files[-4:])
+
+    warnings = payload.get("warnings", [])
+    if isinstance(warnings, list) and warnings:
+        lines.extend(["", "Watch-outs:"])
+        lines.extend(f"- {item}" for item in warnings[-3:])
+
+    next_questions = payload.get("next_questions", [])
+    if isinstance(next_questions, list) and next_questions:
+        lines.extend(["", "Next thread:"])
+        lines.extend(f"- {item}" for item in next_questions[-3:])
+
+    lines.extend(["", "Tip: `/remember <note>` stores project-specific context for later chats."])
+    return "\n".join(lines)
+
+
+def workspace_query_to_text(payload: dict[str, Any]) -> str:
+    results = payload.get("results", []) if isinstance(payload.get("results"), list) else []
+    errors = payload.get("errors", []) if isinstance(payload.get("errors"), list) else []
+    lines = [
+        "RepoBrain Cross-Repo Query",
+        f"Question: {payload.get('query')}",
+        f"Current repo: {payload.get('current_repo')}",
+        f"Compared repos: {payload.get('project_count', len(results))}",
+        f"Context applied: {'yes' if payload.get('context_applied') else 'no'}",
+    ]
+    if results:
+        lines.extend(["", "Best evidence by repo:"])
+        for index, item in enumerate(results, start=1):
+            if not isinstance(item, dict):
+                continue
+            active_suffix = " [active]" if item.get("active") else ""
+            lines.append(
+                f"{index}. {item.get('name')}{active_suffix} confidence={float(item.get('confidence', 0.0)):.3f}"
+            )
+            lines.append(f"   {item.get('repo_root')}")
+            top_files = item.get("top_files", [])
+            if isinstance(top_files, list) and top_files:
+                lines.append(f"   top files: {', '.join(str(path) for path in top_files[:3])}")
+            if item.get("summary"):
+                lines.append(f"   summary: {item.get('summary')}")
+            warnings = item.get("warnings", [])
+            if isinstance(warnings, list) and warnings:
+                lines.append(f"   warnings: {'; '.join(str(warning) for warning in warnings[:2])}")
+    else:
+        lines.extend(["", "No successful repo results."])
+
+    if errors:
+        lines.extend(["", "Errors:"])
+        for item in errors[:4]:
+            if not isinstance(item, dict):
+                continue
+            lines.append(f"- {item.get('name')}: {item.get('error')}")
+
+    lines.extend(["", "Tip: use `/summary` after a useful run to inspect the stored project memory."])
+    return "\n".join(lines)
+
+
 def cli_wordmark() -> str:
     return "\n".join(
         [
@@ -437,15 +563,163 @@ def cli_wordmark() -> str:
             "||//  ||||  ||//  |||||| ||\\\\  ||//  |||||| || || |||",
             "||\\\\  ||    ||\\\\  ||  || || || ||\\\\  ||  || || ||  ||",
             "|| \\\\ ||||| || \\\\ ||  || ||//  || \\\\ ||  || || ||  ||",
+            "",
+            "codebase memory | flow trace | grounded answers",
         ]
     )
 
 
-def quickstart_text() -> str:
+def _terminal_supports_color(stream: Any | None = None) -> bool:
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("TERM", "").lower() == "dumb":
+        return False
+    target = stream or sys.stdout
+    return bool(getattr(target, "isatty", lambda: False)())
+
+
+def _ansi(text: str, *codes: str) -> str:
+    if not _terminal_supports_color():
+        return text
+    return f"\033[{';'.join(codes)}m{text}\033[0m"
+
+
+_KEY_VALUE_PATTERN = re.compile(r"^(?P<indent>\s*)(?P<label>[A-Za-z][A-Za-z0-9 @._/\-+]*:)(?P<value>.*)$")
+_STATUS_BULLET_PATTERN = re.compile(r"^(?P<prefix>\s*(?:- |\d+\. ))(?P<status>\[[^\]]+\])(?P<rest>.*)$")
+_BACKTICK_PATTERN = re.compile(r"`([^`]+)`")
+_NUMBERED_SECTION_PATTERN = re.compile(r"^\d+\.\s.+:$")
+_COMMAND_PREFIXES = (
+    "repobrain ",
+    "python ",
+    "python -m ",
+    "npm ",
+    ".\\",
+    "./",
+)
+
+
+def _status_codes(token: str) -> tuple[str, ...]:
+    normalized = token.strip("[]").strip().lower().replace("_", " ")
+    if normalized in {"pass", "ready", "indexed", "promising", "improving", "low"}:
+        return ("1", "92")
+    if normalized in {"fail", "error", "blocked", "critical", "high", "not ready", "not ready for production"}:
+        return ("1", "91")
+    return ("1", "93")
+
+
+def _style_inline_fragments(text: str) -> str:
+    def replace_code(match: re.Match[str]) -> str:
+        return _ansi(match.group(0), "1", "93")
+
+    return _BACKTICK_PATTERN.sub(replace_code, text)
+
+
+def _style_terminal_line(line: str, *, is_first_non_empty: bool = False) -> str:
+    if not _terminal_supports_color() or not line:
+        return line
+
+    stripped = line.strip()
+    if not stripped:
+        return line
+    if is_first_non_empty:
+        return _ansi(line, "1", "96")
+    if stripped.startswith("Tip:"):
+        return f"{_ansi('Tip:', '1', '95')}{_style_inline_fragments(line[len('Tip:'):])}"
+    if stripped.startswith("Starter prompt:"):
+        return f"{_ansi('Starter prompt:', '1', '95')}{_style_inline_fragments(line[len('Starter prompt:'):])}"
+    if stripped.endswith(":") and not stripped.startswith("- ") and not _NUMBERED_SECTION_PATTERN.match(stripped):
+        return _ansi(line, "1", "94")
+    if _NUMBERED_SECTION_PATTERN.match(stripped):
+        return _ansi(line, "1", "94")
+
+    status_match = _STATUS_BULLET_PATTERN.match(line)
+    if status_match:
+        prefix = _ansi(status_match.group("prefix"), "1", "94")
+        status = _ansi(status_match.group("status"), *_status_codes(status_match.group("status")))
+        rest = _style_inline_fragments(status_match.group("rest"))
+        return f"{prefix}{status}{rest}"
+
+    key_value_match = _KEY_VALUE_PATTERN.match(line)
+    if key_value_match:
+        indent = key_value_match.group("indent")
+        label = _ansi(key_value_match.group("label"), "1", "37")
+        value = _style_inline_fragments(key_value_match.group("value"))
+        return f"{indent}{label}{value}"
+
+    if stripped.startswith(_COMMAND_PREFIXES):
+        return _ansi(line, "1", "93")
+    if stripped.startswith("- ") and stripped[2:].startswith(_COMMAND_PREFIXES):
+        command_offset = line.find("- ") + 2
+        return f"{line[:command_offset]}{_ansi(line[command_offset:], '1', '93')}"
+
+    return _style_inline_fragments(line)
+
+
+def _style_terminal_block(text: str) -> str:
+    if not _terminal_supports_color():
+        return text
+
+    styled_lines: list[str] = []
+    seen_first_non_empty = False
+    for line in text.splitlines():
+        styled_lines.append(_style_terminal_line(line, is_first_non_empty=not seen_first_non_empty and bool(line.strip())))
+        if line.strip() and not seen_first_non_empty:
+            seen_first_non_empty = True
+    return "\n".join(styled_lines)
+
+
+def render_cli_wordmark() -> str:
+    lines = cli_wordmark().splitlines()
+    if not _terminal_supports_color():
+        return "\n".join(lines)
     return "\n".join(
+        _ansi(line, "1", "96") if index < 5 else _ansi(line, "1", "94")
+        for index, line in enumerate(lines)
+    )
+
+
+def chat_intro(repo_root: str | Path, *, styled: bool = False) -> str:
+    root = Path(repo_root).expanduser().resolve()
+    repo_name = root.name or str(root)
+    text = "\n".join(
         [
-            cli_wordmark(),
-            "",
+            "RepoBrain chat is local-only. Type /help for commands, /json for raw payloads, or /exit to quit.",
+            f"Attached repo: {repo_name}",
+            f"Workspace: {root}",
+            "Lanes: ask directly, /evidence, /map, /focus, /summary, /remember, /projects, /add, /use, /multi",
+            'Starter prompt: "Where is auth callback handled?"',
+        ]
+    )
+    return _style_terminal_block(text) if styled else text
+
+
+def chat_help_text(*, styled: bool = False) -> str:
+    text = "\n".join(
+        [
+            "RepoBrain chat commands",
+            "Ask directly: <question>",
+            "Grounded retrieval: /query <q>, /evidence <q>, /trace <q>, /impact <q>, /targets <q>, /map <q>",
+            "Chat focus: /focus <topic>, /focus, /focus clear",
+            "Workspace memory: /summary, /remember <note>, /remember clear",
+            "Workspace routing: /projects, /add <path>, /use <repo>, /multi <q>",
+            "Workspace checks: /index, /review, /baseline, /doctor, /provider-smoke, /ship, /report",
+            "Output and exit: /json, /text, /exit",
+        ]
+    )
+    return _style_terminal_block(text) if styled else text
+
+
+def chat_prompt(repo_root: str | Path) -> str:
+    repo_name = Path(repo_root).expanduser().resolve().name or "repo"
+    safe_name = "".join(character if character.isalnum() or character in "-._" else "_" for character in repo_name)
+    if not _terminal_supports_color():
+        return f"repobrain[{safe_name}]> "
+    return f"{_ansi('repobrain', '1', '96')}[{_ansi(safe_name, '1', '94')}]{_ansi('>', '1', '93')} "
+
+
+def quickstart_text(*, styled: bool = False) -> str:
+    body = "\n".join(
+        [
             "RepoBrain Quickstart",
             "",
             "1. Install:",
@@ -470,6 +744,9 @@ def quickstart_text() -> str:
             "   repobrain report --open",
         ]
     )
+    wordmark = render_cli_wordmark() if styled else cli_wordmark()
+    formatted_body = _style_terminal_block(body) if styled else body
+    return f"{wordmark}\n\n{formatted_body}"
 
 
 def build_report(engine: RepoBrainEngine, output: str | Path | None = None, baseline_label: str = "baseline") -> Path:
@@ -549,12 +826,12 @@ def _report_html(doctor: dict[str, Any], review: ReviewReport, ship: ShipReport)
     delta_html = ""
     if review.delta is not None:
         delta_html = (
-            f"<div class=\"mini-card\">"
+            f"<article class=\"mini-card\">"
             f"<span>baseline drift</span>"
             f"<strong>{html.escape(review.delta.status)} vs {html.escape(review.delta.baseline_label)}</strong>"
             f"<small>{html.escape(review.delta.baseline_saved_at or 'unknown snapshot time')} | score delta {review.delta.score_delta:+.1f}</small>"
             f"<p>{html.escape(', '.join(review.delta.new_findings[:3]) or 'No new high-signal findings.')}</p>"
-            f"</div>"
+            f"</article>"
         )
     benchmark = ship.benchmark or {}
     benchmark_html = (
@@ -594,7 +871,7 @@ def _report_html(doctor: dict[str, Any], review: ReviewReport, ship: ShipReport)
         trend_points_html_parts.append(
             f"""
             <article class="timeline-item{item_class}">
-              <div class="row" style="justify-content:space-between;">
+              <div class="row between">
                 <strong>{html.escape(point_label)}</strong>
                 <span>{point_score:.1f}/10</span>
               </div>
@@ -640,127 +917,337 @@ def _report_html(doctor: dict[str, Any], review: ReviewReport, ship: ShipReport)
             '<small>Run repobrain doctor</small><p>No provider posture details available.</p></article>'
         )
 
+    brand_mark_svg = """
+    <svg class="brand-mark" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="reportShieldGradient" x1="22" y1="28" x2="170" y2="170" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#1A2540"/>
+          <stop offset="0.5" stop-color="#243D76"/>
+          <stop offset="1" stop-color="#162543"/>
+        </linearGradient>
+        <linearGradient id="reportNetworkGradient" x1="64" y1="42" x2="140" y2="146" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#85F9F4"/>
+          <stop offset="0.55" stop-color="#42C9D9"/>
+          <stop offset="1" stop-color="#1C86D1"/>
+        </linearGradient>
+      </defs>
+      <path d="M31 54.5L52.4 33H101.8L156 87.2V122.2L129.8 148.5H78.5L31 101V54.5Z" fill="url(#reportShieldGradient)" />
+      <path d="M31 54.5L52.4 33H101.8L156 87.2V122.2L129.8 148.5H78.5L31 101V54.5Z" stroke="#334A79" stroke-width="4" stroke-linejoin="round" />
+      <path d="M75.2 58.3L90.4 46.6L116.3 48.8L133.7 67.3L133 93.8L117.6 110.9L90 115.8L67.8 103.5L57.5 80.7L62.8 60.1L75.2 58.3Z" stroke="url(#reportNetworkGradient)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.96" />
+      <path d="M58 81L88 78L109 81L90 116" stroke="url(#reportNetworkGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="75" cy="58" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="90" cy="47" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="116" cy="49" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="134" cy="67" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="133" cy="94" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="118" cy="111" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="90" cy="116" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="68" cy="104" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="58" cy="81" r="6.5" fill="#0E1830" stroke="#86FBF6" stroke-width="4" />
+      <circle cx="88" cy="78" r="8" fill="#E6FFFD" />
+      <circle cx="109" cy="81" r="7.5" fill="#D7FFF8" />
+    </svg>
+    """.strip()
+
+    system_facts_html = "\n".join(
+        [
+            f"<li><span>Repo:</span><strong>{html.escape(str(review.repo_root))}</strong></li>",
+            f"<li><span>Embedding:</span><strong>{html.escape(str(providers.get('embedding', 'unknown')))}</strong></li>",
+            f"<li><span>Embedding model:</span><strong>{html.escape(str(providers.get('embedding_model', 'n/a')))}</strong></li>",
+            f"<li><span>Reranker:</span><strong>{html.escape(str(providers.get('reranker', 'unknown')))}</strong></li>",
+            f"<li><span>Reranker model:</span><strong>{html.escape(str(providers.get('reranker_model', 'n/a')))}</strong></li>",
+            f"<li><span>Gemini fallback pool:</span><strong>{html.escape(reranker_models_text)}</strong></li>",
+            f"<li><span>Last failover event:</span><strong>{html.escape(last_failover_text)}</strong></li>",
+            f"<li><span>Local storage only:</span><strong>{html.escape(str(security.get('local_storage_only', True)))}</strong></li>",
+            f"<li><span>Remote providers:</span><strong>{html.escape(str(security.get('remote_providers_enabled', False)))}</strong></li>",
+            f"<li><span>Network required:</span><strong>{html.escape(str(security.get('network_required', False)))}</strong></li>",
+            f"<li><span>Review score:</span><strong>{review.score:.1f}/10</strong></li>",
+            f"<li><span>Readiness:</span><strong>{html.escape(readiness_map.get(review.readiness, review.readiness))}</strong></li>",
+            f"<li><span>Generated:</span><strong>{generated_at}</strong></li>",
+        ]
+    )
+
     return f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RepoBrain Report</title>
+  <title>RepoBrain Control Room Report</title>
   <style>
     :root {{
-      --ink: #1d241f;
-      --muted: #66706a;
-      --paper: #f5f0e6;
-      --panel: rgba(255, 252, 244, 0.86);
-      --line: #d8ccb8;
+      --bg: #efe1cc;
+      --bg-soft: #f8f0e2;
+      --ink: #17211d;
+      --ink-soft: #55645b;
+      --line: rgba(25, 31, 27, 0.12);
+      --line-strong: rgba(25, 31, 27, 0.18);
+      --panel: rgba(255, 250, 242, 0.88);
+      --panel-strong: rgba(255, 252, 246, 0.96);
+      --panel-muted: rgba(255, 255, 255, 0.46);
       --accent: #0f766e;
-      --accent-2: #c2410c;
-      --shadow: 0 24px 80px rgba(40, 32, 18, 0.14);
+      --accent-strong: #0f5b58;
+      --secondary: #1d4ed8;
+      --warning: #c2410c;
+      --good-bg: rgba(15, 118, 110, 0.1);
+      --warn-bg: rgba(194, 65, 12, 0.12);
+      --code-bg: #17211d;
+      --code-ink: #eef2ee;
+      --shadow: 0 24px 72px rgba(63, 41, 15, 0.14);
+      --radius-xl: 32px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --font-sans: Aptos, "Segoe UI Variable Text", "Segoe UI", "Helvetica Neue", sans-serif;
+      --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
     }}
     * {{ box-sizing: border-box; }}
     body {{
       margin: 0;
       color: var(--ink);
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: var(--font-sans);
       background:
-        radial-gradient(circle at top left, rgba(15, 118, 110, 0.24), transparent 34rem),
-        radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.18), transparent 30rem),
-        linear-gradient(135deg, #f8f1e3 0%, #efe3ce 100%);
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.24), transparent 32rem),
+        radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.18), transparent 28rem),
+        linear-gradient(135deg, var(--bg-soft) 0%, var(--bg) 100%);
     }}
     main {{
-      width: min(1120px, calc(100vw - 32px));
+      width: min(1220px, calc(100vw - 32px));
       margin: 0 auto;
-      padding: 48px 0;
+      padding: 28px 0 52px;
     }}
-    .hero {{
+    .hero-grid,
+    .card-grid,
+    .double-grid,
+    .metric-grid,
+    .timeline,
+    .info-strip {{
       display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 24px;
-      align-items: stretch;
+      gap: 18px;
     }}
-    .panel {{
-      background: var(--panel);
+    .hero-grid {{
+      grid-template-columns: 1.15fr 0.85fr;
+    }}
+    .card-grid {{
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }}
+    .double-grid {{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+    .metric-grid {{
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 18px;
+    }}
+    .timeline {{
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }}
+    .hero-card,
+    .panel-card,
+    .mini-card {{
       border: 1px solid var(--line);
-      border-radius: 28px;
-      padding: 28px;
+      border-radius: var(--radius-xl);
       box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
     }}
-    h1 {{
-      margin: 0;
-      font-size: clamp(2.6rem, 8vw, 6rem);
-      letter-spacing: -0.08em;
-      line-height: 0.9;
+    .hero-card,
+    .panel-card {{
+      padding: 26px;
+      background: var(--panel);
     }}
-    h2 {{
-      margin: 0 0 14px;
-      font-size: 1.2rem;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: var(--accent);
+    .mini-card {{
+      padding: 16px;
+      background: var(--panel-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: none;
     }}
-    p {{ color: var(--muted); font-size: 1.04rem; line-height: 1.7; }}
-    .badge {{
-      display: inline-flex;
-      padding: 8px 12px;
+    .brand-card {{
+      position: relative;
+      overflow: hidden;
+    }}
+    .brand-card::after {{
+      content: "";
+      position: absolute;
+      inset: auto -8% -12% auto;
+      width: 240px;
+      height: 240px;
       border-radius: 999px;
-      color: white;
-      background: var(--accent);
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-      font-size: 0.86rem;
+      background: radial-gradient(circle, rgba(29, 78, 216, 0.18), transparent 70%);
+      pointer-events: none;
     }}
-    .badge.warn {{ background: var(--accent-2); }}
-    .grid {{
+    .hero-topline,
+    .section-heading,
+    .row {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }}
+    .row.between {{
+      justify-content: space-between;
+    }}
+    .brand-lockup {{
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 14px;
-      margin-top: 24px;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 18px;
+      margin-top: 18px;
     }}
-    .metric {{
-      padding: 18px;
-      border-radius: 20px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.42);
-    }}
-    .metric span, .mini-card span {{
+    .brand-mark {{
+      width: clamp(82px, 12vw, 132px);
+      aspect-ratio: 1;
       display: block;
-      color: var(--muted);
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
+      filter: drop-shadow(0 18px 30px rgba(13, 30, 52, 0.22));
     }}
-    .metric strong {{
+    .brand-copy {{
+      min-width: 0;
+    }}
+    .brand-kicker {{
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(29, 78, 216, 0.18);
+      background: rgba(29, 78, 216, 0.08);
+      color: var(--secondary);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }}
+    .brand-wordmark {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.14em;
+      margin: 12px 0 10px;
+      font-size: clamp(2.8rem, 8vw, 5.6rem);
+      line-height: 0.9;
+      letter-spacing: -0.07em;
+    }}
+    .brand-word-brain {{
+      color: var(--accent-strong);
+    }}
+    .lead,
+    .section-copy,
+    .mini-card p,
+    footer {{
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.7;
+    }}
+    .brand-rail {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 22px 0 18px;
+    }}
+    .rail-pill,
+    .status-pill,
+    .mini-pill {{
+      display: inline-flex;
+      align-items: center;
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.88rem;
+    }}
+    .rail-pill {{
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.44);
+      color: var(--ink);
+    }}
+    .status-pill,
+    .mini-pill.good {{
+      background: var(--good-bg);
+      color: var(--accent-strong);
+    }}
+    .status-pill.warn,
+    .mini-pill.warn {{
+      background: var(--warn-bg);
+      color: var(--warning);
+    }}
+    .info-strip {{
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 0 0 18px;
+    }}
+    .info-strip div,
+    .metric,
+    .timeline-item {{
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--line);
+      background: var(--panel-muted);
+    }}
+    .info-strip div,
+    .metric,
+    .timeline-item {{
+      padding: 16px;
+    }}
+    .eyebrow,
+    .metric span,
+    .mini-card span,
+    .fact-list span {{
+      display: block;
+      color: var(--ink-soft);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }}
+    .info-strip strong,
+    .metric strong,
+    .mini-card strong,
+    .timeline-item strong,
+    .fact-list strong {{
       display: block;
       margin-top: 8px;
-      font-size: 2rem;
-      line-height: 1;
+      line-height: 1.4;
+      word-break: break-word;
+    }}
+    .metric strong {{
+      font-size: 1.6rem;
+      line-height: 1.1;
+    }}
+    h2 {{
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }}
+    h3 {{
+      margin: 0;
+      font-size: 1rem;
     }}
     .stack {{
       display: grid;
       gap: 14px;
-      margin-top: 24px;
+      margin-top: 18px;
     }}
-    .mini-card {{
-      padding: 16px;
-      border-radius: 18px;
-      background: #fff8ec;
-      border: 1px solid var(--line);
+    .fact-list,
+    .mini-card ul {{
+      margin: 0;
+      padding-left: 18px;
     }}
-    .mini-card strong {{ display: block; margin: 6px 0; }}
-    .timeline {{
+    .fact-list {{
+      list-style: none;
+      padding: 0;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 12px;
+      gap: 10px;
+      margin-top: 18px;
     }}
-    .timeline-item {{
-      padding: 16px;
-      border-radius: 18px;
+    .fact-list li {{
+      padding: 14px 16px;
+      border-radius: var(--radius-lg);
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.52);
+      background: var(--panel-muted);
+    }}
+    .fact-list strong {{
+      margin-top: 6px;
     }}
     .timeline-item.current {{
-      background: rgba(15, 118, 110, 0.1);
+      background: var(--good-bg);
       border-color: rgba(15, 118, 110, 0.35);
+    }}
+    .timeline-item span {{
+      color: var(--ink-soft);
+      font-size: 0.84rem;
     }}
     .timeline-bar {{
       width: 100%;
@@ -774,67 +1261,119 @@ def _report_html(doctor: dict[str, Any], review: ReviewReport, ship: ShipReport)
       display: block;
       height: 100%;
       border-radius: inherit;
-      background: linear-gradient(90deg, var(--accent), #2563eb);
+      background: linear-gradient(90deg, var(--accent), var(--secondary));
     }}
-    code, pre {{
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    code,
+    pre {{
+      font-family: var(--font-mono);
     }}
     pre {{
       overflow-x: auto;
+      margin: 0;
       padding: 18px;
-      border-radius: 18px;
-      color: #fdf6e3;
-      background: #17211d;
+      border-radius: var(--radius-lg);
+      color: var(--code-ink);
+      background: var(--code-bg);
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
     }}
     footer {{
-      margin-top: 24px;
-      color: var(--muted);
-      font-size: 0.9rem;
+      margin-top: 18px;
+      font-size: 0.92rem;
     }}
-    @media (max-width: 820px) {{
-      .hero, .grid {{ grid-template-columns: 1fr; }}
-      main {{ padding: 24px 0; }}
+    @media (max-width: 920px) {{
+      main {{
+        width: min(100vw - 18px, 1220px);
+        padding: 16px 0 36px;
+      }}
+      .hero-grid,
+      .metric-grid,
+      .double-grid,
+      .info-strip {{
+        grid-template-columns: 1fr;
+      }}
+      .brand-lockup,
+      .hero-topline,
+      .section-heading,
+      .row {{
+        grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: flex-start;
+      }}
     }}
   </style>
 </head>
 <body>
   <main>
-    <section class="hero">
-      <div class="panel">
-        <span class="badge {status_class}">{status_label}</span>
-        <h1>RepoBrain</h1>
-        <p>Local codebase memory for AI coding assistants. It indexes files, extracts evidence, traces likely flows, and warns when context is weak.</p>
-        <div class="grid">
+    <section class="hero-grid">
+      <article class="hero-card brand-card">
+        <div class="hero-topline">
+          <span class="status-pill">Local report</span>
+          <span class="mini-pill {status_class}">{status_label}</span>
+        </div>
+        <div class="brand-lockup">
+          {brand_mark_svg}
+          <div class="brand-copy">
+            <span class="brand-kicker">grounded codebase memory</span>
+            <h1 class="brand-wordmark" aria-label="RepoBrain">
+              <span class="brand-word brand-word-repo">Repo</span>
+              <span class="brand-word brand-word-brain">Brain</span>
+            </h1>
+            <p class="lead">Local-first codebase memory for indexing one project, tracing real flows, and ranking safer edit targets with evidence.</p>
+          </div>
+        </div>
+        <div class="brand-rail" aria-label="RepoBrain capabilities">
+          <span class="rail-pill">Query</span>
+          <span class="rail-pill">Trace</span>
+          <span class="rail-pill">Targets</span>
+          <span class="rail-pill">Review</span>
+          <span class="rail-pill">Ship</span>
+        </div>
+        <div class="info-strip">
+          <div>
+            <span class="eyebrow">Report surface</span>
+            <strong>Control Room snapshot</strong>
+          </div>
+          <div>
+            <span class="eyebrow">Readiness</span>
+            <strong>{html.escape(readiness_map.get(review.readiness, review.readiness))}</strong>
+          </div>
+          <div>
+            <span class="eyebrow">Attached repo</span>
+            <strong>{html.escape(str(review.repo_root))}</strong>
+          </div>
+        </div>
+        <div class="metric-grid">
           <div class="metric"><span>files</span><strong>{stats.get('files', 0)}</strong></div>
           <div class="metric"><span>chunks</span><strong>{stats.get('chunks', 0)}</strong></div>
           <div class="metric"><span>symbols</span><strong>{stats.get('symbols', 0)}</strong></div>
           <div class="metric"><span>edges</span><strong>{stats.get('edges', 0)}</strong></div>
         </div>
-      </div>
-      <aside class="panel">
-        <h2>System</h2>
-        <p><strong>Ship gate:</strong> <span class="badge {ship_badge_class}">{html.escape(ship_status_map.get(ship.status, ship.status))}</span></p>
-        <p><strong>Ship score:</strong> {ship.score:.1f}/10</p>
-        <p><strong>Embedding:</strong> {html.escape(str(providers.get('embedding', 'unknown')))}</p>
-        <p><strong>Embedding model:</strong> {html.escape(str(providers.get('embedding_model', 'n/a')))}</p>
-        <p><strong>Reranker:</strong> {html.escape(str(providers.get('reranker', 'unknown')))}</p>
-        <p><strong>Reranker model:</strong> {html.escape(str(providers.get('reranker_model', 'n/a')))}</p>
-        <p><strong>Gemini fallback pool:</strong> {html.escape(reranker_models_text)}</p>
-        <p><strong>Last failover event:</strong> {html.escape(last_failover_text)}</p>
-        <p><strong>Local storage only:</strong> {html.escape(str(security.get('local_storage_only', True)))}</p>
-        <p><strong>Review score:</strong> {review.score:.1f}/10</p>
-        <p><strong>Readiness:</strong> {html.escape(readiness_map.get(review.readiness, review.readiness))}</p>
-        <p><strong>Trend:</strong> <span class="badge {trend_badge_class}">{html.escape(trend_label_map.get(trend_direction, trend_direction))}</span></p>
-        <p><strong>Trend summary:</strong> {html.escape(trend_summary)}</p>
-        <p><strong>Generated:</strong> {generated_at}</p>
+      </article>
+
+      <aside class="hero-card">
+        <div class="section-heading">
+          <div>
+            <h2>System</h2>
+            <p class="section-copy">Operational posture for this local RepoBrain run, including active providers, fallback state, and review readiness.</p>
+          </div>
+          <span class="mini-pill {ship_badge_class}">{html.escape(ship_status_map.get(ship.status, ship.status))}</span>
+        </div>
+        <ul class="fact-list">{system_facts_html}</ul>
       </aside>
     </section>
 
-    <section class="panel stack">
-      <h2>Ship Gate</h2>
-      <p>{html.escape(ship.summary)}</p>
-      <div class="grid">{ship_checks_html}</div>
-      <div class="grid">
+    <section class="panel-card stack">
+      <div class="section-heading">
+        <div>
+          <h2>Ship Gate</h2>
+          <p class="section-copy">{html.escape(ship.summary)}</p>
+        </div>
+        <span class="mini-pill {ship_badge_class}">Ship score {ship.score:.1f}/10</span>
+      </div>
+      <div class="card-grid">{ship_checks_html}</div>
+      <div class="double-grid">
         <article class="mini-card">
           <span>benchmark</span>
           <strong>retrieval quality</strong>
@@ -843,21 +1382,27 @@ def _report_html(doctor: dict[str, Any], review: ReviewReport, ship: ShipReport)
         </article>
         {delta_html or '<article class="mini-card"><span>baseline drift</span><strong>No baseline yet</strong><small>Run repobrain baseline</small><p>Save a stable snapshot after hardening so future scans can detect regressions automatically.</p></article>'}
       </div>
-      <div class="mini-card">
-        <span>what is already solid</span>
-        <ul>{highlights_html}</ul>
-      </div>
-      <div class="mini-card">
-        <span>ship next steps</span>
-        <ul>{ship_next_steps_html}</ul>
+      <div class="double-grid">
+        <article class="mini-card">
+          <span>what is already solid</span>
+          <ul>{highlights_html}</ul>
+        </article>
+        <article class="mini-card">
+          <span>ship next steps</span>
+          <ul>{ship_next_steps_html}</ul>
+        </article>
       </div>
     </section>
 
-    <section class="panel stack">
-      <h2>Provider Posture</h2>
-      <p>See which provider path is active, whether network-backed paths are ready, and which Gemini rerank models are available for failover.</p>
-      <div class="grid">{provider_cards}</div>
-      <div class="grid">
+    <section class="panel-card stack">
+      <div class="section-heading">
+        <div>
+          <h2>Provider Posture</h2>
+          <p class="section-copy">See which provider path is active, whether network-backed paths are ready, and which Gemini rerank models are available for failover.</p>
+        </div>
+      </div>
+      <div class="card-grid">{provider_cards}</div>
+      <div class="double-grid">
         <article class="mini-card">
           <span>gemini pool</span>
           <strong>{html.escape(str(providers.get('reranker_model', 'n/a')))}</strong>
@@ -873,10 +1418,15 @@ def _report_html(doctor: dict[str, Any], review: ReviewReport, ship: ShipReport)
       </div>
     </section>
 
-    <section class="panel stack">
-      <h2>Baseline Trend</h2>
-      <p>{html.escape(trend_summary)}</p>
-      <div class="grid">
+    <section class="panel-card stack">
+      <div class="section-heading">
+        <div>
+          <h2>Baseline Trend</h2>
+          <p class="section-copy">{html.escape(trend_summary)}</p>
+        </div>
+        <span class="mini-pill {trend_badge_class}">{html.escape(trend_label_map.get(trend_direction, trend_direction))}</span>
+      </div>
+      <div class="double-grid">
         <article class="mini-card">
           <span>window</span>
           <strong>{html.escape(trend_label_map.get(trend_direction, trend_direction))}</strong>
@@ -893,22 +1443,26 @@ def _report_html(doctor: dict[str, Any], review: ReviewReport, ship: ShipReport)
       <div class="timeline">{trend_points_html}</div>
     </section>
 
-    <section class="panel stack">
-      <h2>Project Review</h2>
-      <p>{html.escape(review.summary)}</p>
-      <div class="grid">{review_cards}</div>
-      <div class="mini-card">
+    <section class="panel-card stack">
+      <div class="section-heading">
+        <div>
+          <h2>Project Review</h2>
+          <p class="section-copy">{html.escape(review.summary)}</p>
+        </div>
+      </div>
+      <div class="card-grid">{review_cards}</div>
+      <article class="mini-card">
         <span>what to fix first</span>
         <ul>{next_steps_html}</ul>
-      </div>
+      </article>
     </section>
 
-    <section class="panel stack">
+    <section class="panel-card stack">
       <h2>Parsers</h2>
-      <div class="grid">{parser_cards}</div>
+      <div class="card-grid">{parser_cards}</div>
     </section>
 
-    <section class="panel stack">
+    <section class="panel-card stack">
       <h2>Try Next</h2>
       <pre>repobrain index
 repobrain query "Where is the main flow implemented?" --format text

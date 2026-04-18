@@ -167,6 +167,73 @@ textarea {
   justify-content: flex-end;
 }
 
+.brand-lockup {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.brand-mark {
+  width: clamp(82px, 12vw, 132px);
+  aspect-ratio: 1;
+  display: block;
+  filter: drop-shadow(0 18px 30px rgba(13, 30, 52, 0.22));
+}
+
+.brand-copy {
+  min-width: 0;
+}
+
+.brand-kicker {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(29, 78, 216, 0.18);
+  background: rgba(29, 78, 216, 0.08);
+  color: var(--secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.brand-wordmark {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.14em;
+  margin: 12px 0 10px;
+}
+
+.brand-word-brain {
+  color: var(--accent-strong);
+}
+
+.brand-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0 18px;
+}
+
+.rail-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.44);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+:root[data-theme="dark"] .rail-pill {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 h1 {
   margin: 14px 0 10px;
   font-size: clamp(2.8rem, 8vw, 5.6rem);
@@ -594,5 +661,9 @@ h3 {
   .control-cluster {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .brand-lockup {
+    grid-template-columns: 1fr;
   }
 }

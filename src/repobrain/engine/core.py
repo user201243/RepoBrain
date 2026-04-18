@@ -85,13 +85,19 @@ class RepoBrainEngine:
         stats["repo_root"] = str(self.config.resolved_repo_root)
         return stats
 
-    def query(self, query: str, forced_intent: QueryIntent | None = None, limit: int = 6) -> QueryResult:
+    def query(
+        self,
+        query: str,
+        forced_intent: QueryIntent | None = None,
+        limit: int = 6,
+        context: str | None = None,
+    ) -> QueryResult:
         if not self.store.indexed():
             raise RuntimeError("Repository has not been indexed yet. Run `repobrain index` first.")
 
         intent = forced_intent or self._classify_intent(query)
-        profile = self._build_query_profile(query, intent)
-        rewritten = self._rewrite_query(query, intent, profile)
+        profile = self._build_query_profile(query, intent, context=context)
+        rewritten = self._rewrite_query(query, intent, profile, context=context)
         plan = QueryPlan(intent=intent, steps=self._plan_steps(intent), rewritten_queries=rewritten)
 
         fused_hits: dict[int, SearchHit] = {}
@@ -125,14 +131,14 @@ class RepoBrainEngine:
             plan=plan,
         )
 
-    def trace(self, query: str) -> QueryResult:
-        return self.query(query, forced_intent=QueryIntent.TRACE)
+    def trace(self, query: str, *, context: str | None = None) -> QueryResult:
+        return self.query(query, forced_intent=QueryIntent.TRACE, context=context)
 
-    def impact(self, query: str) -> QueryResult:
-        return self.query(query, forced_intent=QueryIntent.IMPACT)
+    def impact(self, query: str, *, context: str | None = None) -> QueryResult:
+        return self.query(query, forced_intent=QueryIntent.IMPACT, context=context)
 
-    def targets(self, query: str) -> QueryResult:
-        return self.query(query, forced_intent=QueryIntent.CHANGE)
+    def targets(self, query: str, *, context: str | None = None) -> QueryResult:
+        return self.query(query, forced_intent=QueryIntent.CHANGE, context=context)
 
     def build_change_context(self, query: str) -> dict[str, object]:
         result = self.targets(query)
@@ -559,8 +565,9 @@ class RepoBrainEngine:
             )
         return "Ship looks ready from the current local signals: index, review, parser posture, provider posture, and benchmark all passed."
 
-    def _build_query_profile(self, query: str, intent: QueryIntent) -> QueryProfile:
+    def _build_query_profile(self, query: str, intent: QueryIntent, *, context: str | None = None) -> QueryProfile:
         tokens = set(tokenize(query))
+        tokens.update(tokenize(context or ""))
         preferred_roles = {"service"}
         if intent == QueryIntent.TRACE:
             preferred_roles.update({"route", "service"})
@@ -642,7 +649,14 @@ class RepoBrainEngine:
             return QueryIntent.EXPLAIN
         return QueryIntent.LOCATE
 
-    def _rewrite_query(self, query: str, intent: QueryIntent, profile: QueryProfile) -> list[str]:
+    def _rewrite_query(
+        self,
+        query: str,
+        intent: QueryIntent,
+        profile: QueryProfile,
+        *,
+        context: str | None = None,
+    ) -> list[str]:
         variants = [query]
         tokens = sorted(profile.tokens)
         if tokens:
@@ -652,6 +666,9 @@ class RepoBrainEngine:
                 variants.append(symbolish)
         if profile.focus_terms:
             variants.append(" ".join(profile.focus_terms))
+        context_tokens = sorted(tokenize(context or ""))
+        if context_tokens:
+            variants.append(" ".join(context_tokens[:12]))
         if intent == QueryIntent.TRACE:
             variants.append(f"{query} call chain entrypoint callback dependency")
         if intent == QueryIntent.IMPACT:

@@ -56,6 +56,7 @@ def mixed_repo(tmp_path: Path) -> Path:
 @pytest.fixture(autouse=True)
 def isolate_active_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("REPOBRAIN_ACTIVE_REPO_FILE", str(tmp_path / "active_repo.txt"))
+    monkeypatch.setenv("REPOBRAIN_WORKSPACE_STATE_FILE", str(tmp_path / "workspace.json"))
     for name in (
         "GEMINI_API_KEY",
         "GEMINI_MODELS",

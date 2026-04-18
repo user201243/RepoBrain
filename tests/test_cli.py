@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 from repobrain.cli import main
-from repobrain.ux import cli_wordmark
+from repobrain.engine.core import RepoBrainEngine
+from repobrain.models import FileEvidence, QueryIntent, QueryPlan, QueryResult
+from repobrain.ux import cli_wordmark, payload_to_text, quickstart_text
 
 
 def test_cli_init_index_query_and_doctor(mixed_repo: Path, capsys) -> None:
@@ -125,6 +128,7 @@ def test_cli_report_generates_local_html(mixed_repo: Path, tmp_path: Path, capsy
     assert output.exists()
     assert "RepoBrain Report" in report_output
     assert "RepoBrain" in output.read_text(encoding="utf-8")
+    assert "Control Room Report" in output.read_text(encoding="utf-8")
     assert "Ship Gate" in output.read_text(encoding="utf-8")
     assert "Baseline Trend" in output.read_text(encoding="utf-8")
     assert "Provider Posture" in output.read_text(encoding="utf-8")
@@ -175,6 +179,126 @@ def test_cli_demo_clean_outputs_text(tmp_path: Path, capsys) -> None:
     assert "Mode: dry-run" in output
     assert "Preserved:" in output
     assert str((repo_root / "webapp" / "dist").resolve()) in output
+
+
+def test_terminal_styling_is_opt_in(monkeypatch) -> None:
+    monkeypatch.setattr("repobrain.ux._terminal_supports_color", lambda stream=None: True)
+    payload = {"files": 1, "chunks": 2, "symbols": 3, "edges": 4, "parsers": {"heuristic": 1}}
+
+    plain_text = payload_to_text(payload)
+    styled_text = payload_to_text(payload, styled=True)
+    quickstart_styled = quickstart_text(styled=True)
+
+    assert "\x1b[" not in plain_text
+    assert "\x1b[" in styled_text
+    assert "\x1b[" in quickstart_styled
+
+
+def test_chat_native_commands_apply_focus_context_and_memory(
+    mixed_repo: Path,
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    assert main(["init", "--repo", str(mixed_repo), "--force"]) == 0
+    capsys.readouterr()
+
+    second_repo = tmp_path / "sample_repo_two"
+    shutil.copytree(mixed_repo, second_repo)
+
+    recorded: dict[str, list[tuple[str, str, str | None]]] = {"query": [], "trace": []}
+
+    def fake_result(repo_name: str, query: str) -> QueryResult:
+        return QueryResult(
+            query=query,
+            intent=QueryIntent.LOCATE,
+            top_files=[
+                FileEvidence(
+                    file_path=f"{repo_name}/backend/auth_service.py",
+                    language="python",
+                    role="service",
+                    score=0.91,
+                    reasons=["path_overlap", "role_match"],
+                )
+            ],
+            snippets=[],
+            call_chain=[],
+            dependency_edges=[],
+            edit_targets=[],
+            confidence=0.74,
+            warnings=["Evidence is concentrated in one file. Cross-check nearby routes, services, and config."],
+            next_questions=["Should RepoBrain trace route flow or service flow next?"],
+            plan=QueryPlan(intent=QueryIntent.LOCATE, steps=["planner"], rewritten_queries=[query]),
+        )
+
+    def fake_query(self, query: str, forced_intent=None, limit: int = 6, context: str | None = None):
+        recorded["query"].append((self.config.resolved_repo_root.name, query, context))
+        return fake_result(self.config.resolved_repo_root.name, query)
+
+    def fake_trace(self, query: str, *, context: str | None = None):
+        recorded["trace"].append((self.config.resolved_repo_root.name, query, context))
+        return fake_result(self.config.resolved_repo_root.name, query)
+
+    inputs = iter(
+        [
+            "/remember auth callback is the main thread",
+            "/focus auth callback handling",
+            "/focus",
+            "/evidence show me the callback files",
+            "/summary",
+            f"/add {second_repo}",
+            "/projects",
+            "/use sample_repo_two",
+            "/map login path",
+            "/multi auth callback",
+            "/remember clear",
+            "/focus clear",
+            "/query plain question after clear",
+            "/exit",
+        ]
+    )
+    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+    monkeypatch.setattr(RepoBrainEngine, "query", fake_query)
+    monkeypatch.setattr(RepoBrainEngine, "trace", fake_trace)
+
+    assert main(["chat", "--repo", str(mixed_repo)]) == 0
+    output = capsys.readouterr().out
+
+    assert "Active focus: auth callback handling" in output
+    assert "Focus cleared." in output
+    assert "Stored repo memory note." in output
+    assert "RepoBrain Cross-Repo Query" in output
+    assert "sample_repo_two" in output
+    assert recorded["query"][0][1] == "show me the callback files"
+    assert "auth callback is the main thread" in str(recorded["query"][0][2])
+    assert "Focus: auth callback handling." in str(recorded["query"][0][2])
+    assert recorded["trace"][0][0] == "sample_repo_two"
+    assert recorded["trace"][0][1] == "login path"
+    assert "sample_repo_two/backend/auth_service.py" in output
+    assert recorded["query"][-1][1] == "plain question after clear"
+    assert "sample_repo/backend/auth_service.py" in output
+
+
+def test_cli_workspace_commands_manage_projects_and_notes(mixed_repo: Path, capsys) -> None:
+    assert main(["workspace", "add", str(mixed_repo), "--format", "text"]) == 0
+    add_output = capsys.readouterr().out
+    assert "Tracked repo and set active" in add_output
+    assert str(mixed_repo) in add_output
+
+    assert main(["workspace", "remember", "payment retry flow lives in backend", "--format", "text"]) == 0
+    remember_output = capsys.readouterr().out
+    assert "Stored repo memory note." in remember_output
+    assert "payment retry flow lives in backend" in remember_output
+
+    assert main(["workspace", "summary", "--format", "text"]) == 0
+    summary_output = capsys.readouterr().out
+    assert "RepoBrain Memory Summary" in summary_output
+    assert "payment retry flow lives in backend" in summary_output
+
+    assert main(["workspace", "list", "--format", "text"]) == 0
+    list_output = capsys.readouterr().out
+    assert "RepoBrain Workspace" in list_output
+    assert "[active]" in list_output
 
 
 def test_chat_launcher_prefers_project_virtualenv() -> None:

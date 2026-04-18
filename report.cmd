@@ -1,5 +1,6 @@
 @echo off
 setlocal
+title RepoBrain Report
 
 cd /d "%~dp0"
 set "PYTHONPATH=%CD%\src"

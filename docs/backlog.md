@@ -14,13 +14,16 @@
 - expand provider smoke coverage and live-key examples for Gemini, OpenAI, Voyage, and Cohere adapters
 - benchmark runner that can target fixture repos independently
 - richer interactive chat summaries instead of raw JSON only
+- deepen `/map`, `/evidence`, `/focus`, `/summary`, and `/multi` into first-class answer modes instead of mostly retrieval wrappers
+- surface persisted repo memory and workspace switching inside `serve-web` and MCP, not just CLI chat
 
 ## P2
 
-- cross-repo workspace support
+- true cross-repo retrieval/index federation instead of per-repo fan-out orchestration
 - graph export for visualization
 - IDE-native formatting helpers for citations and evidence blocks
 - richer demo assets and benchmark reports
+- share visual tokens and brand components across `repobrain report`, `serve-web`, and docs surfaces instead of maintaining the branding separately in each layer
 
 ## Deferred
 

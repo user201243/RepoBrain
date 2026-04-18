@@ -29,6 +29,8 @@ pytest_tmp*/
 pytest_tmp_run/
 pytest_work_run_*/
 pytest_work*/
+pytest_work_manual_*/
+pytest_work_cli_banner_*/
 pytest-cache-files-*
 tests/tmp_base/
 tmp*/
