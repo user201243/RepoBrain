@@ -95,6 +95,7 @@ textarea {
 
 .hero-grid,
 .workspace-grid,
+.memory-grid,
 .status-grid {
   display: grid;
   gap: 18px;
@@ -105,6 +106,11 @@ textarea {
 }
 
 .workspace-grid {
+  margin-top: 18px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.memory-grid {
   margin-top: 18px;
   grid-template-columns: 1fr 1fr;
 }
@@ -401,6 +407,12 @@ h3 {
   margin-bottom: 14px;
 }
 
+.memory-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button,
@@ -457,6 +469,11 @@ h3 {
   box-shadow: none;
 }
 
+.small-button {
+  padding: 8px 12px;
+  font-size: 0.88rem;
+}
+
 .notice-box {
   margin-top: 14px;
   padding: 12px 14px;
@@ -497,6 +514,12 @@ h3 {
 .subpanel-grid {
   grid-template-columns: 1fr 1fr;
   margin-top: 12px;
+}
+
+.memory-stack {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .metric-card,
@@ -583,6 +606,17 @@ h3 {
   margin-top: 12px;
 }
 
+.summary-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.summary-list li + li {
+  margin-top: 6px;
+}
+
 .status-item,
 .activity-item {
   padding: 14px;
@@ -606,6 +640,11 @@ h3 {
   background: var(--panel-muted);
   color: var(--ink-soft);
   line-height: 1.6;
+}
+
+.compact-empty {
+  margin-top: 12px;
+  padding: 12px 14px;
 }
 
 .result-card {
@@ -635,6 +674,7 @@ h3 {
 @media (max-width: 920px) {
   .hero-grid,
   .workspace-grid,
+  .memory-grid,
   .status-grid,
   .info-strip,
   .button-grid,

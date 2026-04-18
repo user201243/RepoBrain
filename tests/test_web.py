@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 from pathlib import Path
 
 import repobrain.web as web_module
@@ -111,6 +112,8 @@ def test_web_bootstrap_api_returns_active_repo(mixed_repo: Path) -> None:
     assert payload["ok"] is True
     assert payload["active_repo"] == str(mixed_repo.resolve())
     assert "vi" in payload["locales"]
+    assert payload["workspace"]["current_repo"] == str(mixed_repo.resolve())
+    assert payload["summary"]["repo_root"] == str(mixed_repo.resolve())
 
 
 def test_web_review_api_renders_project_review_payload(mixed_repo: Path) -> None:
@@ -225,6 +228,73 @@ def test_web_provider_smoke_api_renders_provider_smoke(mixed_repo: Path) -> None
     assert "RepoBrain Provider Smoke" in payload["result"]
     assert payload["data"]["embedding_smoke"]["status"] == "pass"
     assert "pool" in payload["data"]["reranker_smoke"]
+
+
+def test_web_workspace_use_memory_and_multi_query_flow(mixed_repo: Path, tmp_path: Path) -> None:
+    second_repo = tmp_path / "sample_repo_two"
+    shutil.copytree(mixed_repo, second_repo)
+
+    _import_and_index(str(mixed_repo))
+    _import_and_index(str(second_repo))
+    app = _application(default_repo=str(second_repo))
+    status_headers: dict[str, object] = {}
+
+    def start_response(status: str, headers: list[tuple[str, str]]) -> None:
+        status_headers["status"] = status
+        status_headers["headers"] = headers
+
+    remember_request = json.dumps({"note": "auth callback is the main thread"}).encode("utf-8")
+    remember_body = b"".join(
+        app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/api/workspace/remember",
+                "CONTENT_TYPE": "application/json",
+                "wsgi.input": io.BytesIO(remember_request),
+                "CONTENT_LENGTH": str(len(remember_request)),
+            },
+            start_response,
+        )
+    ).decode("utf-8")
+    remember_payload = json.loads(remember_body)
+    assert status_headers["status"] == "200 OK"
+    assert remember_payload["summary"]["manual_notes"] == ["auth callback is the main thread"]
+
+    use_body = b"".join(
+        app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/api/workspace/use",
+                "CONTENT_TYPE": "application/json",
+                "wsgi.input": io.BytesIO(json.dumps({"project": str(mixed_repo)}).encode("utf-8")),
+                "CONTENT_LENGTH": str(len(json.dumps({"project": str(mixed_repo)}).encode("utf-8"))),
+            },
+            start_response,
+        )
+    ).decode("utf-8")
+    use_payload = json.loads(use_body)
+    assert status_headers["status"] == "200 OK"
+    assert use_payload["active_repo"] == str(mixed_repo.resolve())
+    assert use_payload["workspace"]["current_repo"] == str(mixed_repo.resolve())
+
+    multi_request = json.dumps({"mode": "multi", "query": "auth callback"}).encode("utf-8")
+    multi_body = b"".join(
+        app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/api/query",
+                "CONTENT_TYPE": "application/json",
+                "wsgi.input": io.BytesIO(multi_request),
+                "CONTENT_LENGTH": str(len(multi_request)),
+            },
+            start_response,
+        )
+    ).decode("utf-8")
+    multi_payload = json.loads(multi_body)
+    assert status_headers["status"] == "200 OK"
+    assert multi_payload["title"] == "Cross-Repo Query"
+    assert "RepoBrain Cross-Repo Query" in multi_payload["result"]
+    assert "sample_repo_two" in multi_payload["result"]
 
 
 def test_report_html_renders_provider_pool_details() -> None:

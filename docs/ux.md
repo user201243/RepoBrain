@@ -152,8 +152,10 @@ Then:
 
 - paste the project path
 - click `Import + Index`
+- switch between tracked repos from the workspace panel
+- keep a short repo memory summary with manual notes and hot files
 - click `Scan Project Review` for the short audit pass
-- run `query`, `trace`, `impact`, or `targets` from the page
+- run `query`, `trace`, `impact`, `targets`, or cross-repo query mode from the page
 - open the generated report from the same UI
 
 ## Recommended New-User Flow

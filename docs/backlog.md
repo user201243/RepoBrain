@@ -15,7 +15,8 @@
 - benchmark runner that can target fixture repos independently
 - richer interactive chat summaries instead of raw JSON only
 - deepen `/map`, `/evidence`, `/focus`, `/summary`, and `/multi` into first-class answer modes instead of mostly retrieval wrappers
-- surface persisted repo memory and workspace switching inside `serve-web` and MCP, not just CLI chat
+- add summary compaction and eviction rules so long-running repo memory stays useful instead of drifting into noisy notes
+- expose structured citations and per-repo evidence comparisons in browser and MCP workspace results, not just plain text summaries
 
 ## P2
 

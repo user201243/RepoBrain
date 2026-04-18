@@ -3,10 +3,20 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
+from repobrain.active_repo import write_active_repo
 from repobrain.engine.core import RepoBrainEngine
 from repobrain.models import ReviewFocus
+from repobrain.workspace import (
+    add_workspace_project,
+    remember_workspace_note,
+    set_current_workspace_project,
+    workspace_projects_payload,
+    workspace_query_payload,
+    workspace_summary_payload,
+)
 
 
 @dataclass(slots=True)
@@ -19,8 +29,9 @@ class ToolDefinition:
 class RepoBrainMCPServer:
     MAX_QUERY_LENGTH = 2000
 
-    def __init__(self, engine: RepoBrainEngine) -> None:
+    def __init__(self, engine: RepoBrainEngine, engine_factory: Callable[[str | Path], RepoBrainEngine] = RepoBrainEngine) -> None:
         self.engine = engine
+        self.engine_factory = engine_factory
         self.tools = {
             "index_repository": ToolDefinition(
                 "index_repository",
@@ -62,16 +73,71 @@ class RepoBrainMCPServer:
                 "Run the production ship gate across review findings, index health, parser posture, providers, and benchmark signals.",
                 lambda args: self.engine.ship(baseline_label=str(args.get("baseline_label", "baseline"))).to_dict(),
             ),
+            "list_workspace_projects": ToolDefinition(
+                "list_workspace_projects",
+                "List tracked repos in the shared RepoBrain workspace and show the active repo.",
+                lambda args: workspace_projects_payload(),
+            ),
+            "track_workspace_project": ToolDefinition(
+                "track_workspace_project",
+                "Track another repo in the shared workspace and optionally make it active.",
+                lambda args: self._track_workspace_project(str(args["repo"]), activate=bool(args.get("activate", True))),
+            ),
+            "switch_workspace_project": ToolDefinition(
+                "switch_workspace_project",
+                "Switch the active repo for this MCP session and the shared workspace registry.",
+                lambda args: self._switch_workspace_project(str(args["project"])),
+            ),
+            "read_repo_memory": ToolDefinition(
+                "read_repo_memory",
+                "Read the persisted summary memory for the active repo or another tracked repo.",
+                lambda args: workspace_summary_payload(args.get("project")),
+            ),
+            "remember_repo_note": ToolDefinition(
+                "remember_repo_note",
+                "Persist a manual repo note so future workspace queries retain the key thread.",
+                lambda args: remember_workspace_note(str(args["note"]), args.get("project")),
+            ),
+            "search_workspace": ToolDefinition(
+                "search_workspace",
+                "Run the same grounded query across every tracked repo and compare the strongest evidence per project.",
+                lambda args: workspace_query_payload(
+                    str(args["query"]),
+                    current_repo=self.engine.config.resolved_repo_root,
+                    context=str(args.get("context", "")).strip() or None,
+                    engine_factory=self.engine_factory,
+                ),
+            ),
         }
 
     def list_tools(self) -> list[dict[str, str]]:
         return [{"name": tool.name, "description": tool.description} for tool in self.tools.values()]
 
+    def _activate_repo(self, repo_root: str | Path) -> Path:
+        resolved = Path(repo_root).expanduser().resolve()
+        self.engine = self.engine_factory(resolved)
+        write_active_repo(resolved)
+        return resolved
+
+    def _track_workspace_project(self, repo_root: str, *, activate: bool = True) -> dict[str, object]:
+        payload = add_workspace_project(repo_root, make_current=activate)
+        if activate:
+            self._activate_repo(str(payload.get("current_repo", repo_root)))
+        return payload
+
+    def _switch_workspace_project(self, project: str) -> dict[str, object]:
+        payload = set_current_workspace_project(project)
+        current_repo = str(payload.get("current_repo", "")).strip()
+        if not current_repo:
+            raise ValueError("Workspace switch did not produce an active repo.")
+        self._activate_repo(current_repo)
+        return payload
+
     def _validate_tool_call(self, tool_name: str, arguments: dict[str, object]) -> dict[str, object]:
         if tool_name not in self.tools:
             raise ValueError(f"Unknown tool: {tool_name}")
 
-        if tool_name == "index_repository":
+        if tool_name == "index_repository" or tool_name == "list_workspace_projects":
             return {}
         if tool_name == "review_codebase":
             focus = str(arguments.get("focus", ReviewFocus.FULL.value)).strip().lower()
@@ -81,6 +147,35 @@ class RepoBrainMCPServer:
         if tool_name == "assess_ship_readiness":
             baseline_label = str(arguments.get("baseline_label", "baseline")).strip() or "baseline"
             return {"baseline_label": baseline_label}
+        if tool_name == "track_workspace_project":
+            repo = str(arguments.get("repo", "")).strip()
+            if not repo:
+                raise ValueError("`repo` is required for tool `track_workspace_project`.")
+            return {"repo": repo, "activate": bool(arguments.get("activate", True))}
+        if tool_name == "switch_workspace_project":
+            project = str(arguments.get("project", "")).strip()
+            if not project:
+                raise ValueError("`project` is required for tool `switch_workspace_project`.")
+            return {"project": project}
+        if tool_name == "read_repo_memory":
+            project = str(arguments.get("project", "")).strip()
+            return {"project": project or None}
+        if tool_name == "remember_repo_note":
+            note = str(arguments.get("note", "")).strip()
+            if not note:
+                raise ValueError("`note` is required for tool `remember_repo_note`.")
+            project = str(arguments.get("project", "")).strip()
+            return {"note": note, "project": project or None}
+        if tool_name == "search_workspace":
+            query = arguments.get("query")
+            if not isinstance(query, str) or not query.strip():
+                raise ValueError("`query` is required for tool `search_workspace`.")
+            if len(query) > self.MAX_QUERY_LENGTH:
+                raise ValueError(
+                    f"`query` for tool `{tool_name}` exceeds the maximum length of {self.MAX_QUERY_LENGTH} characters."
+                )
+            context = str(arguments.get("context", "")).strip()
+            return {"query": query.strip(), "context": context}
 
         query = arguments.get("query")
         if not isinstance(query, str) or not query.strip():

@@ -3,7 +3,7 @@ import markUrl from "./assets/repobrain-mark.svg";
 
 type Locale = "en" | "vi";
 type Theme = "light" | "dark";
-type QueryMode = "query" | "trace" | "impact" | "targets";
+type QueryMode = "query" | "trace" | "impact" | "targets" | "multi";
 type ActionKind =
   | "import"
   | "index"
@@ -15,16 +15,11 @@ type ActionKind =
   | "query"
   | "trace"
   | "impact"
-  | "targets";
-
-type BootstrapPayload = {
-  ok: boolean;
-  active_repo: string;
-  repo_input: string;
-  report_url: string;
-  locales: Locale[];
-  default_mode: QueryMode;
-};
+  | "targets"
+  | "multi"
+  | "workspace-use"
+  | "remember"
+  | "clear-notes";
 
 type ProviderStatusDetail = {
   active?: string;
@@ -90,6 +85,52 @@ type ProviderSmokeData = {
   };
 };
 
+type WorkspaceProject = {
+  name: string;
+  repo_root: string;
+  active: boolean;
+  summary: string;
+  manual_notes: string[];
+  recent_queries: string[];
+  top_files: string[];
+  warnings: string[];
+  next_questions: string[];
+  updated_at: string;
+};
+
+type WorkspacePayload = {
+  kind: "workspace_projects";
+  message: string;
+  current_repo: string;
+  project_count: number;
+  projects: WorkspaceProject[];
+};
+
+type WorkspaceSummary = {
+  kind: "workspace_summary";
+  message: string;
+  name: string;
+  repo_root: string;
+  summary: string;
+  manual_notes: string[];
+  recent_queries: string[];
+  top_files: string[];
+  warnings: string[];
+  next_questions: string[];
+  updated_at: string;
+};
+
+type BootstrapPayload = {
+  ok: boolean;
+  active_repo: string;
+  repo_input: string;
+  report_url: string;
+  locales: Locale[];
+  default_mode: QueryMode;
+  workspace: WorkspacePayload;
+  summary: WorkspaceSummary | null;
+};
+
 type ActionPayload = {
   ok: boolean;
   active_repo: string;
@@ -99,6 +140,8 @@ type ActionPayload = {
   result: string;
   report_url?: string;
   data?: DoctorData | ProviderSmokeData | null;
+  workspace?: WorkspacePayload;
+  summary?: WorkspaceSummary | null;
 };
 
 type ActivityEntry = {
@@ -115,8 +158,6 @@ const copy = {
       "Local-first codebase memory for indexing one project, tracing real flows, and ranking safer edit targets with evidence.",
     language: "Language",
     theme: "Theme",
-    english: "English",
-    vietnamese: "Vietnamese",
     light: "Light",
     dark: "Dark",
     activeRepo: "Active repo",
@@ -127,8 +168,10 @@ const copy = {
     projectPathPlaceholder: "C:\\path\\to\\your-project",
     importButton: "Import + Index",
     importHint:
-      "This initializes RepoBrain state, stores the active repo, and builds the local index in one step.",
+      "Import initializes RepoBrain state, stores the repo in the shared workspace, and builds the local index in one step.",
     actionsTitle: "Active repo actions",
+    actionsHint:
+      "Use Review for gaps, Ship Gate for a release verdict, Baseline for drift tracking, and Provider Smoke for direct model checks.",
     index: "Re-index active repo",
     review: "Scan project review",
     ship: "Ship gate",
@@ -136,8 +179,6 @@ const copy = {
     providerSmoke: "Provider smoke",
     doctor: "Doctor",
     openReport: "Open report",
-    actionsHint:
-      "Use Project Review for gaps, Ship Gate for a blunt release verdict, Baseline for drift tracking, and Provider Smoke for direct model/provider validation.",
     queryTitle: "Grounded question",
     mode: "Mode",
     question: "Question",
@@ -151,31 +192,45 @@ const copy = {
     traceMode: "Trace",
     impactMode: "Impact",
     targetsMode: "Targets",
+    multiMode: "Cross-repo",
     interfaceStatus: "Interface status",
     localOnly: "Local-only browser UI",
     localOnlyHint:
       "The browser app talks to your local RepoBrain Python server only. No hosted backend is required.",
     reportHint:
-      "The detailed dashboard still opens as a separate local report so you can keep the React workflow focused on actions and results.",
+      "Single-repo queries automatically reuse stored repo memory. Use Cross-repo mode to compare evidence across all tracked projects.",
     diagnosticsTitle: "Release diagnostics",
     diagnosticsHint:
       "Doctor posture and provider smoke stay visible here so release checks do not depend on scrolling through raw text output.",
-    doctorSnapshot: "Doctor snapshot",
-    smokeSnapshot: "Provider smoke snapshot",
     activityTitle: "Recent activity",
     activityHint: "RepoBrain keeps a short local timeline of what you just ran in this browser tab.",
+    workspaceTitle: "Workspace control",
+    workspaceHint:
+      "Imported repos stay tracked here. Switch active repos instantly and keep asking without losing the main thread.",
+    memoryTitle: "Repo memory",
+    memoryHint:
+      "Store a few key notes, then let RepoBrain carry the summary, hot files, and follow-up threads into the next question.",
+    rememberNote: "Memory note",
+    notePlaceholder: "Auth callback is the critical integration thread.",
+    saveNote: "Save note",
+    clearNotes: "Clear notes",
+    useRepo: "Use repo",
+    activeLabel: "Active",
+    noSummary: "No stored summary yet.",
+    manualNotes: "Manual notes",
+    recentAsks: "Recent asks",
+    hotFiles: "Hot files",
+    nextThread: "Next thread",
+    updatedAt: "Updated",
+    noWorkspace: "No tracked repos yet. Import the first project to start a continuous workspace.",
     noDiagnostics: "Run Doctor after import to populate structured release diagnostics.",
     noSmoke: "Run Provider Smoke to see active models, failover state, and direct provider health here.",
     noActivity: "No activity yet in this session.",
     indexed: "Indexed",
     files: "Files",
     chunks: "Chunks",
-    symbols: "Symbols",
-    edges: "Edges",
     embedding: "Embedding",
     reranker: "Reranker",
-    embeddingModel: "Embedding model",
-    rerankerModel: "Reranker model",
     fallbackPool: "Gemini fallback pool",
     singleModel: "Single-model mode",
     failover: "Last failover",
@@ -198,98 +253,110 @@ const copy = {
     no: "No",
     ready: "Ready",
     notReady: "Not ready",
-    disabledUntilImport: "Import a repo to unlock actions and grounded queries.",
+    disabledUntilImport: "Import a repo to unlock actions, memory, and grounded queries.",
   },
   vi: {
     brand: "RepoBrain",
     subtitle:
-      "Bộ nhớ codebase local-first để index một dự án, trace đúng flow, và xếp hạng edit target an toàn hơn dựa trên evidence.",
-    language: "Ngôn ngữ",
-    theme: "Giao diện",
-    english: "Tiếng Anh",
-    vietnamese: "Tiếng Việt",
-    light: "Sáng",
-    dark: "Tối",
-    activeRepo: "Repo đang active",
-    none: "Chưa có",
-    noActiveRepo: "Chưa có repo active. Hãy import đường dẫn dự án ở bên dưới.",
+      "Bo nho codebase local-first de index nhieu du an, trace dung flow, va xep hang edit target an toan hon dua tren evidence.",
+    language: "Ngon ngu",
+    theme: "Giao dien",
+    light: "Sang",
+    dark: "Toi",
+    activeRepo: "Repo dang active",
+    none: "Chua co",
+    noActiveRepo: "Chua co repo active. Hay import duong dan du an o ben duoi.",
     importTitle: "Import nhanh",
-    projectPath: "Đường dẫn dự án",
-    projectPathPlaceholder: "C:\\đường-dẫn\\tới\\dự-án-của-bạn",
+    projectPath: "Duong dan du an",
+    projectPathPlaceholder: "C:\\duong-dan\\toi\\du-an-cua-ban",
     importButton: "Import + Index",
     importHint:
-      "Tác vụ này sẽ khởi tạo state RepoBrain, lưu repo active, và build local index chỉ trong một bước.",
-    actionsTitle: "Tác vụ trên repo active",
-    index: "Index lại repo active",
-    review: "Quét project review",
+      "Import se tao state RepoBrain, them repo vao workspace chung, va build local index trong mot buoc.",
+    actionsTitle: "Tac vu tren repo active",
+    actionsHint:
+      "Dung Review de xem gap, Ship Gate de xem verdict release, Baseline de track drift, va Provider Smoke de check model.",
+    index: "Index lai repo active",
+    review: "Quet project review",
     ship: "Ship gate",
-    baseline: "Lưu baseline",
+    baseline: "Luu baseline",
     providerSmoke: "Smoke provider",
     doctor: "Doctor",
-    openReport: "Mở report",
-    actionsHint:
-      "Dùng Project Review để xem gap, Ship Gate để xem verdict release, Baseline để track drift, và Provider Smoke để kiểm tra trực tiếp model/provider hiện tại.",
-    queryTitle: "Câu hỏi có grounding",
-    mode: "Chế độ",
-    question: "Câu hỏi",
-    questionPlaceholder: "Logic payment retry nằm ở đâu?",
-    run: "Chạy",
-    resultTitle: "Kết quả",
+    openReport: "Mo report",
+    queryTitle: "Cau hoi grounded",
+    mode: "Che do",
+    question: "Cau hoi",
+    questionPlaceholder: "Logic payment retry nam o dau?",
+    run: "Chay",
+    resultTitle: "Ket qua",
     emptyResult:
-      "Chưa có kết quả. Hãy import repo, sau đó chạy review, doctor, provider smoke, hoặc một câu hỏi grounded.",
-    loading: "Đang xử lý...",
+      "Chua co ket qua. Hay import repo, sau do chay review, doctor, provider smoke, hoac mot cau hoi grounded.",
+    loading: "Dang xu ly...",
     queryMode: "Query",
     traceMode: "Trace",
     impactMode: "Impact",
     targetsMode: "Targets",
-    interfaceStatus: "Trạng thái giao diện",
-    localOnly: "Giao diện trình duyệt chỉ chạy local",
+    multiMode: "Da repo",
+    interfaceStatus: "Trang thai giao dien",
+    localOnly: "Giao dien browser chi chay local",
     localOnlyHint:
-      "Ứng dụng browser này chỉ gọi tới RepoBrain Python server đang chạy local của bạn. Không cần hosted backend.",
+      "Ung dung browser nay chi goi toi RepoBrain Python server dang chay local cua ban. Khong can hosted backend.",
     reportHint:
-      "Dashboard chi tiết vẫn mở thành một local report riêng để luồng React tập trung vào thao tác và kết quả.",
+      "Query mot repo se tu dong tai su dung repo memory da luu. Dung Da repo de so sanh evidence tren tat ca project da track.",
     diagnosticsTitle: "Diagnostics cho release",
     diagnosticsHint:
-      "Doctor posture và provider smoke được giữ hiển thị ở đây để lúc release không phải đọc lại cả khối text dài.",
-    doctorSnapshot: "Ảnh chụp Doctor",
-    smokeSnapshot: "Ảnh chụp Provider Smoke",
-    activityTitle: "Hoạt động gần đây",
-    activityHint: "RepoBrain giữ một timeline ngắn cho những tác vụ bạn vừa chạy trong tab này.",
-    noDiagnostics: "Hãy chạy Doctor sau khi import để đổ dữ liệu diagnostics có cấu trúc.",
-    noSmoke: "Hãy chạy Provider Smoke để xem model active, trạng thái failover, và sức khỏe provider trực tiếp tại đây.",
-    noActivity: "Chưa có hoạt động nào trong session này.",
-    indexed: "Đã index",
+      "Doctor posture va provider smoke duoc giu o day de luc release khong phai doc lai ca khoi text dai.",
+    activityTitle: "Hoat dong gan day",
+    activityHint: "RepoBrain giu mot timeline ngan cho nhung tac vu ban vua chay trong tab nay.",
+    workspaceTitle: "Dieu khien workspace",
+    workspaceHint:
+      "Cac repo da import se duoc track tai day. Co the doi repo active ngay va hoi tiep ma khong mat mach.",
+    memoryTitle: "Repo memory",
+    memoryHint:
+      "Luu vai ghi chu quan trong, sau do de RepoBrain giu summary, hot files, va next thread cho lan hoi tiep theo.",
+    rememberNote: "Ghi chu memory",
+    notePlaceholder: "Auth callback la thread tich hop quan trong.",
+    saveNote: "Luu ghi chu",
+    clearNotes: "Xoa ghi chu",
+    useRepo: "Dung repo",
+    activeLabel: "Dang active",
+    noSummary: "Chua co summary da luu.",
+    manualNotes: "Ghi chu tay",
+    recentAsks: "Cau hoi gan day",
+    hotFiles: "Hot files",
+    nextThread: "Luong tiep theo",
+    updatedAt: "Cap nhat",
+    noWorkspace: "Chua co repo nao duoc track. Hay import project dau tien de bat dau workspace lien tuc.",
+    noDiagnostics: "Hay chay Doctor sau khi import de do du lieu diagnostics co cau truc.",
+    noSmoke: "Hay chay Provider Smoke de xem model active, failover state, va suc khoe provider tai day.",
+    noActivity: "Chua co hoat dong nao trong session nay.",
+    indexed: "Da index",
     files: "Files",
     chunks: "Chunks",
-    symbols: "Symbols",
-    edges: "Edges",
     embedding: "Embedding",
     reranker: "Reranker",
-    embeddingModel: "Model embedding",
-    rerankerModel: "Model reranker",
     fallbackPool: "Pool fallback Gemini",
-    singleModel: "Chế độ một model",
-    failover: "Failover gần nhất",
-    remoteProviders: "Provider từ xa",
-    networkRequired: "Cần mạng",
-    localStorageOnly: "Chỉ lưu local",
-    parserPosture: "Trạng thái parser",
-    providerPosture: "Trạng thái provider",
-    warnings: "Cảnh báo",
-    noWarnings: "Không có cảnh báo",
-    status: "Trạng thái",
-    score: "Điểm",
+    singleModel: "Che do mot model",
+    failover: "Failover gan nhat",
+    remoteProviders: "Provider tu xa",
+    networkRequired: "Can mang",
+    localStorageOnly: "Chi luu local",
+    parserPosture: "Trang thai parser",
+    providerPosture: "Trang thai provider",
+    warnings: "Canh bao",
+    noWarnings: "Khong co canh bao",
+    status: "Trang thai",
+    score: "Diem",
     vectors: "Vectors",
-    dimensions: "Chiều",
-    activeBefore: "Model trước",
+    dimensions: "Chieu",
+    activeBefore: "Model truoc",
     activeAfter: "Model sau",
-    lastSync: "Lần đồng bộ",
-    unavailable: "Chưa có",
-    yes: "Có",
-    no: "Không",
-    ready: "Sẵn sàng",
-    notReady: "Chưa sẵn sàng",
-    disabledUntilImport: "Hãy import repo trước để mở khóa action và truy vấn grounded.",
+    lastSync: "Lan dong bo",
+    unavailable: "Chua co",
+    yes: "Co",
+    no: "Khong",
+    ready: "San sang",
+    notReady: "Chua san sang",
+    disabledUntilImport: "Hay import repo truoc de mo khoa action, memory, va grounded query.",
   },
 } as const;
 
@@ -349,6 +416,8 @@ function labelForAction(locale: Locale, action: ActionKind): string {
       return t.impactMode;
     case "targets":
       return t.targetsMode;
+    case "multi":
+      return t.multiMode;
     case "index":
       return t.index;
     case "review":
@@ -361,6 +430,12 @@ function labelForAction(locale: Locale, action: ActionKind): string {
       return t.providerSmoke;
     case "doctor":
       return t.doctor;
+    case "workspace-use":
+      return t.useRepo;
+    case "remember":
+      return t.saveNote;
+    case "clear-notes":
+      return t.clearNotes;
     case "import":
       return t.importButton;
     default:
@@ -429,16 +504,23 @@ function parserSummary(detail?: ParserDetail, locale?: Locale): string {
   if (fallback === undefined) {
     return selected;
   }
-  return `${selected} · fallback ${fallback ? "on" : "off"}`;
+  return `${selected} | fallback ${fallback ? "on" : "off"}`;
+}
+
+function hasSummaryField(payload: ActionPayload): payload is ActionPayload & { summary: WorkspaceSummary | null } {
+  return Object.prototype.hasOwnProperty.call(payload, "summary");
 }
 
 export function App() {
   const [locale, setLocale] = useLocale();
   const [theme, setTheme] = useTheme();
   const [boot, setBoot] = useState<BootstrapPayload | null>(null);
+  const [workspace, setWorkspace] = useState<WorkspacePayload | null>(null);
+  const [summary, setSummary] = useState<WorkspaceSummary | null>(null);
   const [repoPath, setRepoPath] = useState("");
   const [query, setQuery] = useState("Where is payment retry logic implemented?");
   const [mode, setMode] = useState<QueryMode>("query");
+  const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [resultTitle, setResultTitle] = useState("");
   const [resultBody, setResultBody] = useState("");
@@ -451,7 +533,7 @@ export function App() {
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
 
   const t = copy[locale];
-  const activeRepo = boot?.active_repo || "";
+  const activeRepo = workspace?.current_repo || boot?.active_repo || "";
   const reportUrl = boot?.report_url || "/report";
   const hasActiveRepo = Boolean(activeRepo);
 
@@ -459,6 +541,8 @@ export function App() {
     void (async () => {
       const payload = await readJson<BootstrapPayload>("/api/bootstrap");
       setBoot(payload);
+      setWorkspace(payload.workspace);
+      setSummary(payload.summary ?? null);
       setRepoPath(payload.repo_input || "");
       setMode(payload.default_mode);
     })().catch((error: Error) => {
@@ -473,6 +557,12 @@ export function App() {
       if (data) {
         setDoctorData(data);
         setDoctorSyncAt(new Date().toISOString());
+      }
+      if (payload.workspace) {
+        setWorkspace(payload.workspace);
+      }
+      if (hasSummaryField(payload)) {
+        setSummary(payload.summary ?? null);
       }
     } catch {
       // Keep the last visible diagnostics if a background refresh fails.
@@ -498,8 +588,22 @@ export function App() {
       report_url: payload.report_url || current?.report_url || "/report",
       locales: current?.locales || ["en", "vi"],
       default_mode: current?.default_mode || mode,
+      workspace: payload.workspace || current?.workspace || workspace || { kind: "workspace_projects", message: "", current_repo: payload.active_repo, project_count: 0, projects: [] },
+      summary:
+        hasSummaryField(payload)
+          ? payload.summary ?? null
+          : current?.summary ?? summary ?? null,
     }));
     setRepoPath(payload.repo_input || payload.active_repo || "");
+  }
+
+  function syncWorkspace(payload: ActionPayload) {
+    if (payload.workspace) {
+      setWorkspace(payload.workspace);
+    }
+    if (hasSummaryField(payload)) {
+      setSummary(payload.summary ?? null);
+    }
   }
 
   function appendActivity(action: ActionKind, messageText: string) {
@@ -509,11 +613,12 @@ export function App() {
       message: messageText,
       timestamp: new Date().toISOString(),
     };
-    setActivity((current) => [entry, ...current].slice(0, 6));
+    setActivity((current) => [entry, ...current].slice(0, 8));
   }
 
   function applyPayload(action: ActionKind, payload: ActionPayload) {
     syncBoot(payload);
+    syncWorkspace(payload);
     setMessage(payload.message);
     setResultTitle(payload.title);
     setResultBody(payload.result);
@@ -528,8 +633,11 @@ export function App() {
       setSmokeData(payload.data as ProviderSmokeData);
       setSmokeSyncAt(new Date().toISOString());
     }
-    if (action === "import" || action === "index") {
+    if (action === "import" || action === "index" || action === "workspace-use") {
       void refreshDoctorSnapshot();
+    }
+    if (action === "remember") {
+      setNote("");
     }
   }
 
@@ -575,8 +683,55 @@ export function App() {
         method: "POST",
         body: JSON.stringify({ mode, query }),
       });
-      const queryAction: ActionKind = mode === "query" ? "query" : mode;
+      const queryAction: ActionKind =
+        mode === "query" ? "query" : mode === "multi" ? "multi" : mode;
       applyPayload(queryAction, payload);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleWorkspaceUse(project: string) {
+    try {
+      setBusy("workspace-use");
+      const payload = await readJson<ActionPayload>("/api/workspace/use", {
+        method: "POST",
+        body: JSON.stringify({ project }),
+      });
+      applyPayload("workspace-use", payload);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleRemember(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      setBusy("remember");
+      const payload = await readJson<ActionPayload>("/api/workspace/remember", {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      });
+      applyPayload("remember", payload);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleClearNotes() {
+    try {
+      setBusy("clear-notes");
+      const payload = await readJson<ActionPayload>("/api/workspace/clear-notes", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      applyPayload("clear-notes", payload);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -605,6 +760,13 @@ export function App() {
     smokeData?.reranker_smoke?.last_failover_error ||
     t.noWarnings;
   const resultBadge = labelForAction(locale, resultAction);
+  const workspaceProjects = workspace?.projects || [];
+  const summaryBlocks = [
+    { title: t.manualNotes, items: summary?.manual_notes || [] },
+    { title: t.recentAsks, items: summary?.recent_queries || [] },
+    { title: t.hotFiles, items: summary?.top_files || [] },
+    { title: t.nextThread, items: summary?.next_questions || [] },
+  ];
 
   return (
     <main className="app-shell">
@@ -661,7 +823,7 @@ export function App() {
           <div className="brand-rail" aria-label="RepoBrain capabilities">
             <span className="rail-pill">{labelForAction(locale, "query")}</span>
             <span className="rail-pill">{labelForAction(locale, "trace")}</span>
-            <span className="rail-pill">{labelForAction(locale, "targets")}</span>
+            <span className="rail-pill">{labelForAction(locale, "multi")}</span>
             <span className="rail-pill">{t.review}</span>
             <span className="rail-pill">{t.ship}</span>
           </div>
@@ -733,15 +895,12 @@ export function App() {
           <h2>{t.queryTitle}</h2>
           <form className="panel-form" onSubmit={handleQuery}>
             <label htmlFor="modeSelect">{t.mode}</label>
-            <select
-              id="modeSelect"
-              value={mode}
-              onChange={(event) => setMode(event.target.value as QueryMode)}
-            >
+            <select id="modeSelect" value={mode} onChange={(event) => setMode(event.target.value as QueryMode)}>
               <option value="query">{labelForAction(locale, "query")}</option>
               <option value="trace">{labelForAction(locale, "trace")}</option>
               <option value="impact">{labelForAction(locale, "impact")}</option>
               <option value="targets">{labelForAction(locale, "targets")}</option>
+              <option value="multi">{labelForAction(locale, "multi")}</option>
             </select>
             <label htmlFor="queryText">{t.question}</label>
             <textarea
@@ -758,6 +917,99 @@ export function App() {
         </article>
       </section>
 
+      <section className="memory-grid">
+        <article className="panel-card">
+          <div className="section-heading">
+            <div>
+              <h2>{t.workspaceTitle}</h2>
+              <p className="section-copy">{t.workspaceHint}</p>
+            </div>
+            <span className="mini-pill">{workspaceProjects.length}</span>
+          </div>
+          {workspaceProjects.length > 0 ? (
+            <div className="status-list">
+              {workspaceProjects.map((project) => (
+                <article key={project.repo_root} className={`status-item ${project.active ? "good" : "neutral"}`}>
+                  <div className="status-row">
+                    <strong>
+                      {project.name}
+                      {project.active ? ` · ${t.activeLabel}` : ""}
+                    </strong>
+                    <button
+                      className="ghost-button small-button"
+                      disabled={project.active || busy === "workspace-use"}
+                      onClick={() => void handleWorkspaceUse(project.repo_root)}
+                      type="button"
+                    >
+                      {busy === "workspace-use" && !project.active ? t.loading : t.useRepo}
+                    </button>
+                  </div>
+                  <p>{project.repo_root}</p>
+                  <small>{project.summary || t.noSummary}</small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">{t.noWorkspace}</div>
+          )}
+        </article>
+
+        <article className="panel-card">
+          <div className="section-heading">
+            <div>
+              <h2>{t.memoryTitle}</h2>
+              <p className="section-copy">{t.memoryHint}</p>
+            </div>
+            <span className="mini-pill">
+              {t.updatedAt}: {formatTimestamp(locale, summary?.updated_at || null)}
+            </span>
+          </div>
+          <p className="muted-copy">{summary?.summary || t.noSummary}</p>
+          <form className="panel-form" onSubmit={handleRemember}>
+            <label htmlFor="memoryNote">{t.rememberNote}</label>
+            <textarea
+              id="memoryNote"
+              placeholder={t.notePlaceholder}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              disabled={!hasActiveRepo}
+            />
+            <div className="memory-form-row">
+              <button className="primary-button" disabled={!hasActiveRepo || busy === "remember" || !note.trim()} type="submit">
+                {busy === "remember" ? t.loading : t.saveNote}
+              </button>
+              <button
+                className="outline-button"
+                disabled={!hasActiveRepo || busy === "clear-notes"}
+                onClick={() => void handleClearNotes()}
+                type="button"
+              >
+                {busy === "clear-notes" ? t.loading : t.clearNotes}
+              </button>
+            </div>
+          </form>
+          <div className="memory-stack">
+            {summaryBlocks.map((block) => (
+              <article key={block.title} className="subpanel-card inset">
+                <div className="subpanel-head">
+                  <h3>{block.title}</h3>
+                  <span className="mini-pill">{block.items.length}</span>
+                </div>
+                {block.items.length > 0 ? (
+                  <ul className="summary-list">
+                    {block.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="empty-state compact-empty">{t.noSummary}</div>
+                )}
+              </article>
+            ))}
+          </div>
+        </article>
+      </section>
+
       <section className="status-grid">
         <article className="panel-card">
           <div className="section-heading">
@@ -765,7 +1017,9 @@ export function App() {
               <h2>{t.diagnosticsTitle}</h2>
               <p className="section-copy">{t.diagnosticsHint}</p>
             </div>
-            <span className="mini-pill">{t.lastSync}: {formatTimestamp(locale, doctorSyncAt)}</span>
+            <span className="mini-pill">
+              {t.lastSync}: {formatTimestamp(locale, doctorSyncAt)}
+            </span>
           </div>
           {doctorData ? (
             <>
@@ -794,17 +1048,23 @@ export function App() {
                 <article className="compact-card">
                   <span className="eyebrow">{t.fallbackPool}</span>
                   <strong>{rerankerPoolText}</strong>
-                  <p>{t.failover}: {lastFailoverText}</p>
+                  <p>
+                    {t.failover}: {lastFailoverText}
+                  </p>
                 </article>
                 <article className="compact-card">
                   <span className="eyebrow">{t.remoteProviders}</span>
                   <strong>{yesNo(locale, doctorData.security?.remote_providers_enabled)}</strong>
-                  <p>{t.networkRequired}: {yesNo(locale, doctorData.security?.network_required)}</p>
+                  <p>
+                    {t.networkRequired}: {yesNo(locale, doctorData.security?.network_required)}
+                  </p>
                 </article>
                 <article className="compact-card">
                   <span className="eyebrow">{t.localStorageOnly}</span>
                   <strong>{yesNo(locale, doctorData.security?.local_storage_only)}</strong>
-                  <p>{t.parserPosture}: {parserEntries.length || 0}</p>
+                  <p>
+                    {t.parserPosture}: {parserEntries.length || 0}
+                  </p>
                 </article>
               </div>
 
@@ -823,10 +1083,12 @@ export function App() {
                             <span>{detail.active || detail.configured || t.unavailable}</span>
                           </div>
                           <p>
-                            {t.status}: {detail.ready ? t.ready : t.notReady} · {t.networkRequired}:{" "}
+                            {t.status}: {detail.ready ? t.ready : t.notReady} | {t.networkRequired}:{" "}
                             {yesNo(locale, detail.requires_network)}
                           </p>
-                          <small>{t.warnings}: {formatWarnings(locale, detail.warnings)}</small>
+                          <small>
+                            {t.warnings}: {formatWarnings(locale, detail.warnings)}
+                          </small>
                         </article>
                       ))}
                     </div>
@@ -869,12 +1131,14 @@ export function App() {
               <h2>{t.activityTitle}</h2>
               <p className="section-copy">{t.activityHint}</p>
             </div>
-            <span className="mini-pill">{t.lastSync}: {formatTimestamp(locale, smokeSyncAt)}</span>
+            <span className="mini-pill">
+              {t.lastSync}: {formatTimestamp(locale, smokeSyncAt)}
+            </span>
           </div>
 
           <div className="subpanel-card inset">
             <div className="subpanel-head">
-              <h3>{t.smokeSnapshot}</h3>
+              <h3>{t.providerSmoke}</h3>
               <span className={`mini-pill ${toneForStatus(smokeData?.reranker_smoke?.status)}`}>
                 {smokeData?.reranker_smoke?.status || t.unavailable}
               </span>
@@ -885,14 +1149,16 @@ export function App() {
                   <span>{t.embedding}</span>
                   <strong>{smokeData.embedding_smoke?.status || t.unavailable}</strong>
                   <small>
-                    {t.vectors}: {smokeData.embedding_smoke?.vector_count ?? 0} · {t.dimensions}:{" "}
+                    {t.vectors}: {smokeData.embedding_smoke?.vector_count ?? 0} | {t.dimensions}:{" "}
                     {smokeData.embedding_smoke?.dimensions ?? 0}
                   </small>
                 </article>
                 <article className={`metric-card ${toneForStatus(smokeData.reranker_smoke?.status)}`}>
                   <span>{t.reranker}</span>
                   <strong>{smokeData.reranker_smoke?.status || t.unavailable}</strong>
-                  <small>{t.score}: {smokeData.reranker_smoke?.score ?? t.unavailable}</small>
+                  <small>
+                    {t.score}: {smokeData.reranker_smoke?.score ?? t.unavailable}
+                  </small>
                 </article>
                 <article className="metric-card">
                   <span>{t.activeBefore}</span>

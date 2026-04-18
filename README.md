@@ -1,5 +1,4 @@
 # RepoBrain
-
 ![alt text](image.png)
 RepoBrain is a local-first codebase memory engine for AI coding assistants. It indexes a repository, extracts symbols and lightweight dependency edges, combines lexical and semantic retrieval, and returns grounded evidence about where logic lives, how flows connect, and which files are safest to inspect before code is changed.
 
@@ -91,7 +90,8 @@ This unreleased track now maps most closely to the `0.5.x` integration line: it 
 - Live provider access checks through `repobrain provider-smoke`
 - Active repo memory: run `repobrain init --repo <path>` once, then omit `--repo`
 - Local browser UI through `repobrain serve-web --open`
-- React TSX local browser UI with English/Vietnamese interface toggle, light/dark theme, and structured diagnostics cards
+- React TSX local browser UI with English/Vietnamese interface toggle, light/dark theme, structured diagnostics cards, tracked workspace switching, repo memory notes, and cross-repo query mode
+- Persisted workspace memory shared across CLI chat, browser UI, and MCP tools
 - Concise repo scan through `repobrain review --format text`
 - Optional SDK-backed Gemini/OpenAI/Voyage/Cohere provider adapters
 - Gemini rerank model pools through `GEMINI_MODELS` with automatic failover on quota/rate-limit exhaustion
@@ -202,6 +202,8 @@ repobrain report
 repobrain report --open
 repobrain demo-clean --format text
 repobrain serve-web
+repobrain workspace list
+repobrain workspace summary
 repobrain quickstart
 repobrain release-check --format text
 repobrain serve-mcp

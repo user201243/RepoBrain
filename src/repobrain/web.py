@@ -11,6 +11,18 @@ from wsgiref.simple_server import make_server
 from repobrain.active_repo import read_active_repo, write_active_repo
 from repobrain.engine.core import RepoBrainEngine
 from repobrain.ux import build_report, payload_to_text
+from repobrain.workspace import (
+    clear_workspace_notes,
+    project_context_hint,
+    remember_workspace_note,
+    set_current_workspace_project,
+    workspace_projects_payload,
+    workspace_query_payload,
+    workspace_summary_payload,
+)
+
+
+_MISSING = object()
 
 
 def _frontend_dir_candidates() -> tuple[Path, ...]:
@@ -75,19 +87,39 @@ def _report_html(repo_root: Path) -> str:
     return report_path.read_text(encoding="utf-8")
 
 
+def _workspace_snapshot() -> tuple[dict[str, object], dict[str, object] | None]:
+    workspace = workspace_projects_payload()
+    current_repo = str(workspace.get("current_repo", "")).strip()
+    if not current_repo:
+        return workspace, None
+    try:
+        return workspace, workspace_summary_payload(current_repo)
+    except ValueError:
+        return workspace, None
+
+
 def _action_result(mode: str, query_text: str) -> tuple[str, str, str]:
     repo_root, engine = _active_engine()
+    context = project_context_hint(repo_root)
     if mode == "trace":
-        payload = engine.trace(query_text)
+        payload = engine.trace(query_text, context=context)
         title = "Trace"
     elif mode == "impact":
-        payload = engine.impact(query_text)
+        payload = engine.impact(query_text, context=context)
         title = "Impact"
     elif mode == "targets":
-        payload = engine.targets(query_text)
+        payload = engine.targets(query_text, context=context)
         title = "Targets"
+    elif mode == "multi":
+        payload = workspace_query_payload(
+            query_text,
+            current_repo=repo_root,
+            context=context,
+            engine_factory=_engine_from_repo,
+        )
+        title = "Cross-Repo Query"
     else:
-        payload = engine.query(query_text)
+        payload = engine.query(query_text, context=context)
         title = "Query"
     return str(repo_root), title, payload_to_text(payload)
 
@@ -168,7 +200,15 @@ def _web_action_payload(
     message: str,
     report_url: str = "/report",
     data: object | None = None,
+    workspace: dict[str, object] | None = None,
+    summary: dict[str, object] | None | object = _MISSING,
 ) -> dict[str, object]:
+    if workspace is None or summary is _MISSING:
+        inferred_workspace, inferred_summary = _workspace_snapshot()
+        if workspace is None:
+            workspace = inferred_workspace
+        if summary is _MISSING:
+            summary = inferred_summary
     payload: dict[str, object] = {
         "ok": True,
         "active_repo": repo_text,
@@ -177,6 +217,8 @@ def _web_action_payload(
         "title": title,
         "result": result,
         "report_url": report_url,
+        "workspace": workspace,
+        "summary": summary,
     }
     if data is not None:
         payload["data"] = data
@@ -186,6 +228,7 @@ def _web_action_payload(
 def _bootstrap_payload(default_repo: str = "") -> dict[str, object]:
     active_repo = read_active_repo()
     active_repo_text = str(active_repo) if active_repo else default_repo
+    workspace, summary = _workspace_snapshot()
     return {
         "ok": True,
         "active_repo": active_repo_text,
@@ -193,6 +236,8 @@ def _bootstrap_payload(default_repo: str = "") -> dict[str, object]:
         "report_url": "/report",
         "locales": ["en", "vi"],
         "default_mode": "query",
+        "workspace": workspace,
+        "summary": summary,
     }
 
 
@@ -244,6 +289,10 @@ def _application(default_repo: str = ""):
         if method == "GET" and path == "/api/bootstrap":
             return _json_response(start_response, "200 OK", _bootstrap_payload(default_repo=default_repo))
 
+        if method == "GET" and path == "/api/workspace":
+            workspace, summary = _workspace_snapshot()
+            return _json_response(start_response, "200 OK", {"ok": True, "workspace": workspace, "summary": summary})
+
         if method == "GET" and path == "/api/doctor":
             try:
                 repo_text, data = _doctor_payload()
@@ -287,6 +336,51 @@ def _application(default_repo: str = ""):
                         result=payload_to_text(data),
                         message="Provider smoke completed.",
                         data=data,
+                    )
+                elif path == "/api/workspace/use":
+                    project = fields.get("project", "").strip()
+                    if not project:
+                        raise ValueError("Project selection is required.")
+                    workspace = set_current_workspace_project(project)
+                    repo_text = str(workspace.get("current_repo", "")).strip()
+                    if not repo_text:
+                        raise ValueError("Workspace switch did not produce an active repo.")
+                    write_active_repo(repo_text)
+                    summary = workspace_summary_payload(repo_text)
+                    payload = _web_action_payload(
+                        repo_text=repo_text,
+                        title="Workspace",
+                        result=payload_to_text(summary),
+                        message="Active repo switched.",
+                        workspace=workspace,
+                        summary=summary,
+                    )
+                elif path == "/api/workspace/remember":
+                    note = fields.get("note", "").strip()
+                    if not note:
+                        raise ValueError("Note text is required.")
+                    summary = remember_workspace_note(note)
+                    repo_text = str(summary.get("repo_root", "")).strip()
+                    workspace, _ = _workspace_snapshot()
+                    payload = _web_action_payload(
+                        repo_text=repo_text,
+                        title="Repo Memory",
+                        result=payload_to_text(summary),
+                        message="Repo memory note saved.",
+                        workspace=workspace,
+                        summary=summary,
+                    )
+                elif path == "/api/workspace/clear-notes":
+                    summary = clear_workspace_notes()
+                    repo_text = str(summary.get("repo_root", "")).strip()
+                    workspace, _ = _workspace_snapshot()
+                    payload = _web_action_payload(
+                        repo_text=repo_text,
+                        title="Repo Memory",
+                        result=payload_to_text(summary),
+                        message="Repo memory notes cleared.",
+                        workspace=workspace,
+                        summary=summary,
                     )
                 elif path == "/api/query":
                     query_text = fields.get("query", "").strip()
