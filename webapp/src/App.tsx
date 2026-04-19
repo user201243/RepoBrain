@@ -350,6 +350,19 @@ const copy = {
     noDiagnostics: "Run Doctor after import to populate structured release diagnostics.",
     noSmoke: "Run Provider Smoke to see active models, failover state, and direct provider health here.",
     noActivity: "No activity yet in this session.",
+    newcomerTitle: "New here? Use this order.",
+    newcomerHint:
+      "RepoBrain is easier when the first run follows one path: import, ask, then review. The interface now keeps the next file context visible instead of hiding it in raw text.",
+    newcomerImport: "Import + Index",
+    newcomerImportHint: "Build the local map first so every result can cite real files.",
+    newcomerAsk: "Ask or trace",
+    newcomerAskHint: "Use Query for location, Trace for flows, Impact for blast radius, and Targets for edit planning.",
+    newcomerReview: "Review with context",
+    newcomerReviewHint: "Auto-attached files show what to open next and how to improve the patch.",
+    footerTitle: "Local control room",
+    footerBody: "Everything here talks to your local RepoBrain server and keeps project memory on this machine.",
+    footerPrimary: "Start with Import + Index",
+    footerSecondary: "Then run Patch Review",
     indexed: "Indexed",
     files: "Files",
     chunks: "Chunks",
@@ -479,6 +492,19 @@ const copy = {
     noDiagnostics: "Hay chay Doctor sau khi import de do du lieu diagnostics co cau truc.",
     noSmoke: "Hay chay Provider Smoke de xem model active, failover state, va suc khoe provider tai day.",
     noActivity: "Chua co hoat dong nao trong session nay.",
+    newcomerTitle: "Moi vao thi di theo thu tu nay.",
+    newcomerHint:
+      "RepoBrain de dung hon khi lan dau chi theo mot duong: import, hoi, roi review. Giao dien se giu file context can xem tiep thay vi giau trong raw text.",
+    newcomerImport: "Import + Index",
+    newcomerImportHint: "Build ban do local truoc de moi ket qua co the cite file that.",
+    newcomerAsk: "Hoi hoac trace",
+    newcomerAskHint: "Dung Query de tim vi tri, Trace de xem flow, Impact de xem blast radius, Targets de lap ke hoach edit.",
+    newcomerReview: "Review co context",
+    newcomerReviewHint: "File auto-attached cho biet nen mo file nao tiep va cai thien theo huong nao.",
+    footerTitle: "Local control room",
+    footerBody: "Moi thu o day chi noi voi RepoBrain server local va giu project memory tren may nay.",
+    footerPrimary: "Bat dau bang Import + Index",
+    footerSecondary: "Sau do chay Patch Review",
     indexed: "Da index",
     files: "Files",
     chunks: "Chunks",
@@ -1057,6 +1083,29 @@ export function App() {
           </form>
           <p className="muted-copy">{t.importHint}</p>
           {!hasActiveRepo ? <div className="notice-box neutral">{t.disabledUntilImport}</div> : null}
+        </article>
+      </section>
+
+      <section className="newcomer-strip" aria-label={t.newcomerTitle}>
+        <article className="newcomer-lead-card">
+          <span className="eyebrow">{t.interfaceStatus}</span>
+          <h2>{t.newcomerTitle}</h2>
+          <p>{t.newcomerHint}</p>
+        </article>
+        <article className="newcomer-step-card">
+          <span>01</span>
+          <strong>{t.newcomerImport}</strong>
+          <p>{t.newcomerImportHint}</p>
+        </article>
+        <article className="newcomer-step-card">
+          <span>02</span>
+          <strong>{t.newcomerAsk}</strong>
+          <p>{t.newcomerAskHint}</p>
+        </article>
+        <article className="newcomer-step-card">
+          <span>03</span>
+          <strong>{t.newcomerReview}</strong>
+          <p>{t.newcomerReviewHint}</p>
         </article>
       </section>
 
@@ -1657,6 +1706,18 @@ export function App() {
           <pre>{resultBody || t.emptyResult}</pre>
         )}
       </section>
+
+      <footer className="app-footer">
+        <div>
+          <span className="eyebrow">{t.brand}</span>
+          <h2>{t.footerTitle}</h2>
+          <p>{t.footerBody}</p>
+        </div>
+        <div className="footer-action-row">
+          <span>{t.footerPrimary}</span>
+          <span>{t.footerSecondary}</span>
+        </div>
+      </footer>
     </main>
   );
 }

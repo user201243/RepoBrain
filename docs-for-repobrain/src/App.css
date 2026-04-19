@@ -477,15 +477,31 @@
 
 .app-main {
   display: grid;
-  gap: 44px;
-  padding: 40px 0 96px;
+  gap: 52px;
+  padding: 46px 0 104px;
 }
 
 .card {
+  position: relative;
+  overflow: hidden;
   border-radius: 26px;
   border: 1px solid var(--border);
-  background: var(--panel);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 18%, transparent), transparent),
+    var(--panel);
   box-shadow: var(--shadow);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 24px;
+  left: 24px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong), transparent);
+  opacity: 0.68;
 }
 
 section[id],
@@ -579,8 +595,8 @@ section[id],
 
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.98fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.08fr) minmax(380px, 0.92fr);
+  gap: 24px;
   align-items: stretch;
 }
 
@@ -605,7 +621,10 @@ section[id],
   gap: 16px;
   position: relative;
   overflow: hidden;
-  background: var(--panel-hero);
+  min-height: 610px;
+  background:
+    radial-gradient(circle at 92% 88%, color-mix(in srgb, var(--accent-strong) 16%, transparent), transparent 22rem),
+    var(--panel-hero);
 }
 
 .hero-copy::before {
@@ -613,9 +632,9 @@ section[id],
   position: absolute;
   bottom: 0;
   left: 0;
-  width: 20rem;
-  height: 20rem;
-  background: radial-gradient(circle at center, rgba(41, 197, 183, 0.1), transparent 72%);
+  width: 24rem;
+  height: 24rem;
+  background: radial-gradient(circle at center, color-mix(in srgb, var(--accent) 14%, transparent), transparent 72%);
   pointer-events: none;
   transform: translate(-24%, 24%);
 }
@@ -624,7 +643,10 @@ section[id],
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 35%);
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 35%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: auto, 42px 42px;
   pointer-events: none;
 }
 
@@ -679,19 +701,19 @@ section[id],
 }
 
 .hero-copy h1 {
-  max-width: 14ch;
+  max-width: 13ch;
   margin: 0;
   color: var(--heading);
-  font-size: clamp(2.6rem, 4.5vw, 4.35rem);
-  line-height: 0.98;
-  letter-spacing: -0.06em;
+  font-size: clamp(2.9rem, 5vw, 5rem);
+  line-height: 0.92;
+  letter-spacing: -0.075em;
 }
 
 .hero-body {
-  max-width: 60ch;
+  max-width: 58ch;
   color: var(--text);
-  font-size: 1rem;
-  line-height: 1.66;
+  font-size: 1.08rem;
+  line-height: 1.68;
 }
 
 .hero-actions {
@@ -716,7 +738,7 @@ section[id],
 .primary-action {
   background: linear-gradient(135deg, var(--accent-strong), var(--accent));
   color: #ffffff;
-  box-shadow: 0 14px 32px rgba(28, 93, 232, 0.24);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--accent-strong) 24%, transparent);
 }
 
 .secondary-action {
@@ -737,7 +759,9 @@ section[id],
   padding: 18px;
   border-radius: 18px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-soft) 78%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 84%, transparent), transparent),
+    color-mix(in srgb, var(--surface-elevated) 48%, transparent);
 }
 
 .hero-stat span {
@@ -766,6 +790,9 @@ section[id],
   display: grid;
   gap: 20px;
   align-content: start;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 30%, transparent), transparent),
+    var(--panel);
 }
 
 .panel-head {
@@ -1092,9 +1119,12 @@ section[id],
 
 .docs-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.55fr);
+  gap: 24px;
   align-items: end;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 52%),
+    var(--panel);
 }
 
 .docs-overview-stats {
@@ -1110,7 +1140,9 @@ section[id],
   padding: 16px 18px;
   border-radius: 18px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-soft) 82%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-elevated) 46%, transparent), transparent),
+    color-mix(in srgb, var(--surface-soft) 82%, transparent);
 }
 
 .overview-pill strong {
@@ -1124,8 +1156,8 @@ section[id],
 
 .docs-workspace {
   display: grid;
-  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
 }
 
@@ -1135,6 +1167,9 @@ section[id],
   display: grid;
   gap: 18px;
   max-height: calc(100vh - var(--header-offset) - 28px);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 28%, transparent), transparent),
+    var(--panel);
 }
 
 .docs-sidebar-head h3 {
@@ -1153,9 +1188,11 @@ section[id],
   gap: 8px;
   width: 100%;
   padding: 16px;
-  border-radius: 18px;
+  border-radius: 20px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-soft) 82%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-elevated) 32%, transparent), transparent),
+    color-mix(in srgb, var(--surface-soft) 82%, transparent);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -1188,7 +1225,9 @@ section[id],
 
 .doc-list-item.active {
   border-color: var(--border-strong);
-  background: color-mix(in srgb, var(--accent-strong) 10%, var(--surface-soft));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
+    color-mix(in srgb, var(--accent-strong) 9%, var(--surface-soft));
 }
 
 .reader-column {
@@ -1205,6 +1244,9 @@ section[id],
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
   gap: 20px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 12%, transparent), transparent 20rem),
+    var(--panel);
 }
 
 .reader-intro-head {
@@ -1248,6 +1290,9 @@ section[id],
 
 .markdown-shell {
   overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 16%, transparent), transparent),
+    var(--panel);
 }
 
 .markdown-shell > * {
@@ -1406,6 +1451,7 @@ section[id],
 .status-card {
   display: grid;
   gap: 12px;
+  box-shadow: var(--shadow-soft);
 }
 
 .surface-icon {
@@ -1416,7 +1462,9 @@ section[id],
   justify-content: center;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-soft) 84%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent),
+    color-mix(in srgb, var(--surface-soft) 84%, transparent);
   color: var(--accent-link);
 }
 
@@ -1440,15 +1488,15 @@ section[id],
   padding: 6px 10px;
   border-radius: 999px;
   color: #ffffff;
-  background: #7083a3;
+  background: #647365;
 }
 
 .status-pass .status-pill {
-  background: #169a80;
+  background: #16896f;
 }
 
 .status-info .status-pill {
-  background: #2f6df4;
+  background: #c36b2e;
 }
 
 .status-pending .status-pill {
@@ -1507,10 +1555,14 @@ section[id],
 }
 
 .footer {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent-strong) 12%, transparent), transparent 18rem),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-elevated) 28%, transparent), transparent),
+    var(--panel);
 }
 
 .footer > div {
@@ -1523,6 +1575,14 @@ section[id],
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.footer-links a {
+  padding: 10px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-soft) 76%, transparent);
+  font-weight: 700;
 }
 
 .topbar-nav a:hover,
@@ -1728,9 +1788,13 @@ section[id],
     grid-template-columns: 1fr;
   }
 
-  .hero-actions,
-  .footer {
+  .hero-actions {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .footer {
+    grid-template-columns: 1fr;
     align-items: stretch;
   }
 
