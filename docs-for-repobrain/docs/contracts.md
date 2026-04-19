@@ -205,6 +205,41 @@ Notes:
 - A provider-smoke call may pass for one provider and fail for the other.
 - For Gemini pools, `active_model_after` shows where the process ended after any failover attempt.
 
+### `repobrain key gemini`
+
+Writes Gemini provider settings for the active repo or `--repo` target. The payload never includes the raw API key.
+
+Example shape:
+
+```json
+{
+  "kind": "gemini_config",
+  "repo_root": "/abs/path/to/repo",
+  "config_path": "/abs/path/to/repo/repobrain.toml",
+  "env_path": "/abs/path/to/repo/.env",
+  "api_key_saved": true,
+  "embedding": "gemini",
+  "reranker": "gemini",
+  "gemini_embedding_model": "gemini-embedding-001",
+  "gemini_output_dimensionality": 768,
+  "gemini_task_type": "SEMANTIC_SIMILARITY",
+  "gemini_rerank_model": "gemini-2.5-flash",
+  "gemini_models": [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-3-flash-preview"
+  ],
+  "env_keys": [
+    "GEMINI_API_KEY",
+    "GEMINI_MODELS",
+    "REPOBRAIN_GEMINI_EMBEDDING_MODEL",
+    "REPOBRAIN_GEMINI_OUTPUT_DIMENSIONALITY",
+    "REPOBRAIN_GEMINI_RERANK_MODEL",
+    "REPOBRAIN_GEMINI_TASK_TYPE"
+  ]
+}
+```
+
 ## Query Result Schema
 
 ```json

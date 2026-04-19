@@ -93,6 +93,12 @@ openai_embedding_model = "text-embedding-3-small"
 
 Gemini setup:
 
+```bash
+repobrain key gemini --repo /path/to/project --format text
+```
+
+The command prompts for the key without echoing it, then writes `.env` and the provider section in `repobrain.toml`. In interactive chat, `/key gemini` runs the same setup against the attached repo.
+
 ```toml
 [providers]
 embedding = "gemini"

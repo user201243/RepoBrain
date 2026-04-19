@@ -139,10 +139,29 @@ It is useful for:
 
 Supports `--format text` and `--format json`.
 
+### `repobrain key gemini`
+
+Saves a Gemini API key and writes the matching provider defaults into the active repo:
+
+- `.env` gets `GEMINI_API_KEY`, Gemini embedding options, and `GEMINI_MODELS`
+- `repobrain.toml` gets `embedding = "gemini"` and `reranker = "gemini"` unless disabled
+- terminal output redacts the actual key
+
+Examples:
+
+```bash
+repobrain key gemini --format text
+repobrain key gemini --repo /path/to/project --format text
+repobrain key gemini --no-embedding --model-pool gemini-2.5-flash,gemini-3-flash-preview --format text
+```
+
+Omit `--api-key` for the secure prompt. Use `--api-key` only in automation where process logs are controlled.
+
 ### `repobrain chat`
 
 Starts a local interactive loop. Chat uses text summaries by default. Plain questions run through `query`; slash commands select specific harness modes:
 
+- `/key gemini`
 - `/summary`
 - `/remember <note>`
 - `/remember clear`

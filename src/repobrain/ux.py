@@ -11,6 +11,7 @@ from typing import Any
 
 from repobrain.engine.core import RepoBrainEngine
 from repobrain.models import FileEvidence, PatchReviewChange, PatchReviewReport, QueryResult, ReviewReport, ShipReport
+from repobrain.provider_setup import gemini_config_result_to_text
 
 
 def payload_to_json(payload: object) -> str:
@@ -38,6 +39,8 @@ def _payload_to_text_plain(payload: object) -> str:
     if isinstance(payload, dict):
         if payload.get("kind") == "file_context":
             return file_context_to_text(payload)
+        if payload.get("kind") == "gemini_config":
+            return gemini_config_result_to_text(payload)
         if "file_context" in payload:
             file_context = payload.get("file_context")
             base_payload = dict(payload)
@@ -1001,7 +1004,7 @@ def chat_intro(repo_root: str | Path, *, styled: bool = False) -> str:
             "RepoBrain chat is local-only. Type /help for commands, /json for raw payloads, or /exit to quit.",
             f"Attached repo: {repo_name}",
             f"Workspace: {root}",
-            "Lanes: ask directly, /evidence, /map, /focus, /summary, /remember, /projects, /add, /use, /multi",
+            "Lanes: ask directly, /evidence, /map, /focus, /key, /summary, /remember, /projects, /add, /use, /multi",
             'Starter prompt: "Where is auth callback handled?"',
         ]
     )
@@ -1014,6 +1017,7 @@ def chat_help_text(*, styled: bool = False) -> str:
             "RepoBrain chat commands",
             "Ask directly: <question>",
             "Grounded retrieval: /query <q>, /evidence <q>, /trace <q>, /impact <q>, /targets <q>, /map <q>",
+            "Provider keys: /key gemini (secure prompt), /key gemini <api-key>",
             "Chat focus: /focus <topic>, /focus, /focus clear",
             "Workspace memory: /summary, /remember <note>, /remember clear",
             "Workspace routing: /projects, /add <path>, /use <repo>, /multi <q>",

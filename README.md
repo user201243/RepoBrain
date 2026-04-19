@@ -232,6 +232,7 @@ repobrain benchmark
 repobrain ship
 repobrain doctor
 repobrain provider-smoke
+repobrain key gemini
 repobrain chat
 repobrain report
 repobrain report --open
@@ -322,6 +323,14 @@ reranker = "local"
 ```
 
 Remote providers are opt-in. Install `.[providers]`, set the relevant API key in `.env`, and explicitly change `repobrain.toml` before RepoBrain sends code to Gemini, OpenAI, Voyage, or Cohere.
+
+For the Gemini path, the CLI can write both `.env` and `repobrain.toml` without echoing the key:
+
+```bash
+repobrain key gemini --repo /path/to/your-project --format text
+```
+
+Inside `repobrain chat`, use `/key gemini` for the same secure prompt.
 
 Cheap Gemini setup:
 

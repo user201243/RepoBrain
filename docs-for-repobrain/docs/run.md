@@ -89,6 +89,7 @@ repobrain chat
 
 Useful chat commands:
 
+- `/key gemini`
 - `/summary`
 - `/remember <note>`
 - `/projects`
@@ -272,7 +273,15 @@ The current default path remains local-first. RepoBrain only sends code to a rem
 
 ### Gemini setup
 
-Create `.env` from the template:
+Use the CLI setup command when you want RepoBrain to write both `.env` and `repobrain.toml`:
+
+```bash
+repobrain key gemini --format text
+```
+
+Inside interactive chat, `/key gemini` runs the same setup for the attached repo.
+
+You can still create `.env` from the template manually:
 
 ```bash
 cp .env.example .env

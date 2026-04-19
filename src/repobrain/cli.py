@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,7 @@ from repobrain.engine.core import RepoBrainEngine
 from repobrain.file_context import attach_file_context, build_file_context, file_paths_from_context
 from repobrain.mcp_server import serve_mcp
 from repobrain.models import QueryResult, ReviewFocus
+from repobrain.provider_setup import DEFAULT_GEMINI_MODEL_POOL_TEXT, configure_gemini_provider
 from repobrain.release import inspect_release_artifacts
 from repobrain.web import serve_web
 from repobrain.ux import (
@@ -103,6 +105,20 @@ def _parser() -> argparse.ArgumentParser:
     smoke_parser.add_argument("--repo", default=None)
     _add_format_argument(smoke_parser)
 
+    key_parser = subparsers.add_parser("key", help="Configure provider API keys and provider defaults.")
+    key_subparsers = key_parser.add_subparsers(dest="key_provider", required=True)
+    gemini_key_parser = key_subparsers.add_parser("gemini", help="Save a Gemini API key and enable Gemini providers.")
+    gemini_key_parser.add_argument("--repo", default=None)
+    gemini_key_parser.add_argument("--api-key", default=None, help="Gemini API key. Omit to prompt without echo.")
+    gemini_key_parser.add_argument("--no-embedding", action="store_true", help="Keep embedding provider local.")
+    gemini_key_parser.add_argument("--no-reranker", action="store_true", help="Keep reranker provider local.")
+    gemini_key_parser.add_argument("--embedding-model", default="gemini-embedding-001")
+    gemini_key_parser.add_argument("--output-dimensionality", default="768")
+    gemini_key_parser.add_argument("--task-type", default="SEMANTIC_SIMILARITY")
+    gemini_key_parser.add_argument("--rerank-model", default="gemini-2.5-flash")
+    gemini_key_parser.add_argument("--model-pool", default=DEFAULT_GEMINI_MODEL_POOL_TEXT)
+    _add_format_argument(gemini_key_parser)
+
     chat_parser = subparsers.add_parser("chat", help="Start an interactive local RepoBrain question loop.")
     chat_parser.add_argument("--repo", default=None)
 
@@ -175,6 +191,56 @@ def _dump(payload: object, output_format: str = "json") -> None:
         print(payload_to_text(payload, styled=True))
         return
     print(payload_to_json(payload))
+
+
+def _resolve_gemini_api_key(api_key: str | None) -> str:
+    if api_key is not None:
+        resolved = api_key.strip()
+    else:
+        try:
+            resolved = getpass.getpass("Gemini API key: ").strip()
+        except (EOFError, KeyboardInterrupt) as exc:
+            print()
+            raise ValueError("Gemini API key was not provided.") from exc
+    if not resolved:
+        raise ValueError("Gemini API key was empty.")
+    return resolved
+
+
+def _configure_gemini_key(
+    repo_root: str | Path,
+    *,
+    api_key: str | None,
+    use_embedding: bool = True,
+    use_reranker: bool = True,
+    embedding_model: str = "gemini-embedding-001",
+    output_dimensionality: str = "768",
+    task_type: str = "SEMANTIC_SIMILARITY",
+    rerank_model: str = "gemini-2.5-flash",
+    model_pool: str = DEFAULT_GEMINI_MODEL_POOL_TEXT,
+) -> dict[str, object]:
+    return configure_gemini_provider(
+        repo_root,
+        api_key=_resolve_gemini_api_key(api_key),
+        use_embedding=use_embedding,
+        use_reranker=use_reranker,
+        embedding_model=embedding_model,
+        output_dimensionality=output_dimensionality,
+        task_type=task_type,
+        rerank_model=rerank_model,
+        model_pool=model_pool,
+    )
+
+
+def _chat_key_payload(raw_query: str, repo_root: Path) -> dict[str, object]:
+    command_tail = raw_query.removeprefix("/key").strip()
+    api_key: str | None = None
+    if command_tail:
+        provider, _, value = command_tail.partition(" ")
+        if provider.lower() != "gemini":
+            raise ValueError("Only `/key gemini` is supported right now.")
+        api_key = value.strip() or None
+    return _configure_gemini_key(repo_root, api_key=api_key)
 
 
 def _build_and_remember_file_context(repo_root: Path, payload: object, *, action_label: str) -> dict[str, object] | None:
@@ -263,6 +329,14 @@ def _chat(engine: RepoBrainEngine) -> int:
             continue
         if lowered == "/focus" or raw_query.startswith("/focus "):
             print(_handle_focus_command(raw_query, session_state))
+            continue
+        if lowered == "/key" or raw_query.startswith("/key "):
+            try:
+                payload = _chat_key_payload(raw_query, repo_root)
+                current_engine = RepoBrainEngine(repo_root)
+                _dump(payload, output_format)
+            except Exception as exc:
+                _dump({"error": str(exc), "hint": "Use `/key gemini` to add a Gemini API key."}, output_format)
             continue
         if lowered == "/projects":
             _dump(workspace_projects_payload(), output_format)
@@ -414,6 +488,27 @@ def main(argv: list[str] | None = None) -> int:
             if active_repo is not None:
                 initial_repo = str(active_repo)
         return serve_web(repo_root=initial_repo, host=args.host, port=args.port, open_browser=args.open_browser)
+    if args.command == "key":
+        if args.key_provider == "gemini":
+            try:
+                payload = _configure_gemini_key(
+                    repo_root,
+                    api_key=args.api_key,
+                    use_embedding=not args.no_embedding,
+                    use_reranker=not args.no_reranker,
+                    embedding_model=args.embedding_model,
+                    output_dimensionality=args.output_dimensionality,
+                    task_type=args.task_type,
+                    rerank_model=args.rerank_model,
+                    model_pool=args.model_pool,
+                )
+            except ValueError as exc:
+                parser.error(str(exc))
+                return 2
+            _dump(payload, getattr(args, "format", "json"))
+            return 0
+        parser.error(f"Unsupported key provider: {args.key_provider}")
+        return 2
 
     engine = RepoBrainEngine(repo_root)
     output_format = getattr(args, "format", "json")

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import mimetypes
-import os
 import sys
 import webbrowser
 from pathlib import Path
@@ -10,9 +9,9 @@ from urllib.parse import parse_qs
 from wsgiref.simple_server import make_server
 
 from repobrain.active_repo import read_active_repo, write_active_repo
-from repobrain.config import RepoBrainConfig
 from repobrain.engine.core import RepoBrainEngine
 from repobrain.file_context import attach_file_context, build_file_context, file_paths_from_context
+from repobrain.provider_setup import configure_gemini_provider, gemini_config_result_to_text
 from repobrain.ux import build_report, file_context_to_text, payload_to_text
 from repobrain.workspace import (
     clear_workspace_notes,
@@ -27,14 +26,6 @@ from repobrain.workspace import (
 
 
 _MISSING = object()
-_GEMINI_ENV_KEYS = {
-    "GEMINI_API_KEY",
-    "REPOBRAIN_GEMINI_EMBEDDING_MODEL",
-    "REPOBRAIN_GEMINI_OUTPUT_DIMENSIONALITY",
-    "REPOBRAIN_GEMINI_TASK_TYPE",
-    "REPOBRAIN_GEMINI_RERANK_MODEL",
-    "GEMINI_MODELS",
-}
 
 
 def _frontend_dir_candidates() -> tuple[Path, ...]:
@@ -283,58 +274,6 @@ def _bool_field(fields: dict[str, object], name: str, default: bool = False) -> 
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _env_quote(value: str) -> str:
-    if not value or any(char.isspace() for char in value) or any(char in value for char in "#'\""):
-        return json.dumps(value)
-    return value
-
-
-def _write_env_values(repo_root: Path, updates: dict[str, str]) -> Path:
-    env_path = repo_root / ".env"
-    existing_lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
-    written_keys: set[str] = set()
-    output_lines: list[str] = []
-
-    for raw_line in existing_lines:
-        stripped = raw_line.strip()
-        key_text = stripped.removeprefix("export ").split("=", 1)[0].strip() if "=" in stripped else ""
-        if key_text in updates:
-            output_lines.append(f"{key_text}={_env_quote(updates[key_text])}")
-            written_keys.add(key_text)
-        else:
-            output_lines.append(raw_line)
-
-    if output_lines and output_lines[-1].strip():
-        output_lines.append("")
-    for key, value in updates.items():
-        if key not in written_keys:
-            output_lines.append(f"{key}={_env_quote(value)}")
-
-    env_path.write_text("\n".join(output_lines).rstrip() + "\n", encoding="utf-8")
-    for key, value in updates.items():
-        os.environ[key] = value
-    return env_path
-
-
-def _gemini_config_result_to_text(payload: dict[str, object]) -> str:
-    models = payload.get("gemini_models", [])
-    model_text = ", ".join(str(item) for item in models) if isinstance(models, list) and models else "single model"
-    return "\n".join(
-        [
-            "RepoBrain Gemini Config",
-            f"Repo: {payload.get('repo_root')}",
-            f"Config: {payload.get('config_path')}",
-            f"Env: {payload.get('env_path')}",
-            f"Embedding: {payload.get('embedding')}",
-            f"Reranker: {payload.get('reranker')}",
-            f"Rerank model: {payload.get('gemini_rerank_model')}",
-            f"Model pool: {model_text}",
-            "",
-            "Next: run Doctor or Provider Smoke to verify provider readiness.",
-        ]
-    )
-
-
 def _configure_gemini_payload(fields: dict[str, object]) -> tuple[str, dict[str, object], str]:
     repo_hint = _text_field(fields, "repo_path")
     if repo_hint:
@@ -352,51 +291,18 @@ def _configure_gemini_payload(fields: dict[str, object]) -> tuple[str, dict[str,
     task_type = _text_field(fields, "task_type", "SEMANTIC_SIMILARITY") or "SEMANTIC_SIMILARITY"
     rerank_model = _text_field(fields, "rerank_model", "gemini-2.5-flash") or "gemini-2.5-flash"
     model_pool_text = _text_field(fields, "model_pool", "")
-    model_pool = [item.strip() for item in model_pool_text.replace("\n", ",").split(",") if item.strip()]
-    if rerank_model not in model_pool:
-        model_pool.insert(0, rerank_model)
-
-    env_updates: dict[str, str] = {}
-    if api_key:
-        env_updates["GEMINI_API_KEY"] = api_key
-    env_updates.update({
-        "REPOBRAIN_GEMINI_EMBEDDING_MODEL": embedding_model,
-        "REPOBRAIN_GEMINI_OUTPUT_DIMENSIONALITY": output_dimensionality,
-        "REPOBRAIN_GEMINI_TASK_TYPE": task_type,
-        "REPOBRAIN_GEMINI_RERANK_MODEL": rerank_model,
-        "GEMINI_MODELS": ",".join(model_pool),
-    })
-    env_path = _write_env_values(repo_root, env_updates)
-
-    config = RepoBrainConfig.load(repo_root)
-    config.providers.embedding = "gemini" if use_embedding else "local"
-    config.providers.reranker = "gemini" if use_reranker else "local"
-    config.providers.options.update(
-        {
-            "gemini_embedding_model": embedding_model,
-            "gemini_output_dimensionality": int(output_dimensionality),
-            "gemini_task_type": task_type,
-            "gemini_rerank_model": rerank_model,
-            "gemini_models": model_pool,
-        }
+    data = configure_gemini_provider(
+        repo_root,
+        api_key=api_key,
+        use_embedding=use_embedding,
+        use_reranker=use_reranker,
+        embedding_model=embedding_model,
+        output_dimensionality=output_dimensionality,
+        task_type=task_type,
+        rerank_model=rerank_model,
+        model_pool=model_pool_text,
     )
-    config_path = config.write_default(force=True)
-    write_active_repo(repo_root)
-
-    data: dict[str, object] = {
-        "kind": "gemini_config",
-        "repo_root": str(repo_root),
-        "config_path": str(config_path),
-        "env_path": str(env_path),
-        "api_key_saved": bool(api_key),
-        "embedding": config.providers.embedding,
-        "reranker": config.providers.reranker,
-        "gemini_embedding_model": embedding_model,
-        "gemini_rerank_model": rerank_model,
-        "gemini_models": model_pool,
-        "env_keys": sorted(key for key in env_updates if key in _GEMINI_ENV_KEYS),
-    }
-    return str(repo_root), data, _gemini_config_result_to_text(data)
+    return str(repo_root), data, gemini_config_result_to_text(data)
 
 
 def _web_action_payload(

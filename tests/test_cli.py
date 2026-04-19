@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from repobrain.cli import main
+from repobrain.config import RepoBrainConfig
 from repobrain.engine.core import RepoBrainEngine
 from repobrain.models import FileEvidence, QueryIntent, QueryPlan, QueryResult
 from repobrain.ux import cli_wordmark, payload_to_text, quickstart_text
@@ -60,6 +61,38 @@ def test_cli_remembers_active_repo_after_init(mixed_repo: Path, capsys) -> None:
     assert "RepoBrain Auto-Attached Files" in query_output
 
 
+def test_cli_key_gemini_writes_env_and_provider_config(mixed_repo: Path, capsys, monkeypatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    assert (
+        main(
+            [
+                "key",
+                "gemini",
+                "--repo",
+                str(mixed_repo),
+                "--api-key",
+                "cli-gemini-key",
+                "--model-pool",
+                "gemini-2.5-flash,gemini-3-flash-preview",
+                "--format",
+                "text",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    config = RepoBrainConfig.load(mixed_repo)
+
+    assert "RepoBrain Gemini Config" in output
+    assert "API key: saved" in output
+    assert "cli-gemini-key" not in output
+    assert (mixed_repo / ".env").read_text(encoding="utf-8").splitlines()[0] == "GEMINI_API_KEY=cli-gemini-key"
+    assert config.providers.embedding == "gemini"
+    assert config.providers.reranker == "gemini"
+    assert config.providers.options["gemini_models"] == ["gemini-2.5-flash", "gemini-3-flash-preview"]
+
+
 def test_cli_chat_can_exit(mixed_repo: Path, capsys, monkeypatch) -> None:
     assert main(["init", "--repo", str(mixed_repo), "--force"]) == 0
     capsys.readouterr()
@@ -71,6 +104,25 @@ def test_cli_chat_can_exit(mixed_repo: Path, capsys, monkeypatch) -> None:
     chat_output = capsys.readouterr().out
     assert cli_wordmark() in chat_output
     assert "RepoBrain chat is local-only" in chat_output
+
+
+def test_cli_chat_key_command_prompts_for_gemini_key(mixed_repo: Path, capsys, monkeypatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    inputs = iter(["/key gemini", "/exit"])
+
+    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+    monkeypatch.setattr("repobrain.cli.getpass.getpass", lambda _: "chat-gemini-key")
+
+    assert main(["chat", "--repo", str(mixed_repo)]) == 0
+    output = capsys.readouterr().out
+    config = RepoBrainConfig.load(mixed_repo)
+
+    assert "RepoBrain Gemini Config" in output
+    assert "API key: saved" in output
+    assert "chat-gemini-key" not in output
+    assert (mixed_repo / ".env").read_text(encoding="utf-8").splitlines()[0] == "GEMINI_API_KEY=chat-gemini-key"
+    assert config.providers.embedding == "gemini"
+    assert config.providers.reranker == "gemini"
 
 
 def test_cli_text_output_and_quickstart(mixed_repo: Path, capsys) -> None:
