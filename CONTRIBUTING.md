@@ -16,7 +16,7 @@ pytest
 - Keep the local-first story intact.
 - Prefer explicit evidence over implicit magic.
 - Add or update tests for retrieval, graph extraction, or CLI behavior when you change them.
-- Document public-facing changes in `README.md`, `docs/`, or `CHANGELOG.md`.
+- Document public-facing changes in `README.md`, `docs-for-repobrain/docs/`, or `CHANGELOG.md`.
 
 ## Pull Request Checklist
 

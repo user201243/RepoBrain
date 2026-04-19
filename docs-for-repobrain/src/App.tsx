@@ -3,7 +3,6 @@ import {
   startTransition,
   useDeferredValue,
   useEffect,
-  useEffectEvent,
   useRef,
   useState,
 } from 'react'
@@ -473,12 +472,12 @@ function App() {
   const [query, setQuery] = useState(getInitialQuery)
   const [selectedDocId, setSelectedDocId] = useState(getInitialSelectedDocId)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [shouldFocusMobileSearch, setShouldFocusMobileSearch] = useState(false)
   const [copiedActionId, setCopiedActionId] = useState('')
   const [toastMessage, setToastMessage] = useState('')
   const desktopSearchRef = useRef<HTMLInputElement>(null)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
   const copyResetTimeoutRef = useRef<number | null>(null)
+  const shouldFocusMobileSearchRef = useRef(false)
   const deferredQuery = useDeferredValue(normalizeSearchText(query))
   const text = (value: LocalizedText) => localizeText(value, locale)
   const spotlightItems = uiCopy.spotlightItems[locale]
@@ -497,7 +496,7 @@ function App() {
       return doc.content
     }
 
-    return localizedDocContent[doc.id]?.[locale] ?? text(appUi.localizedDocPending)
+    return localizedDocContent[doc.id]?.[locale] ?? doc.content
   }
   const getDocSearchContent = (doc: (typeof docsLibrary)[number]) => {
     const localizedEntry = localizedDocContent[doc.id]
@@ -598,7 +597,7 @@ function App() {
       description: text(uiCopy.commandsBody),
     },
   ]
-  const announceFeedback = useEffectEvent((actionId: string, message: string) => {
+  function announceFeedback(actionId: string, message: string) {
     if (copyResetTimeoutRef.current !== null) {
       window.clearTimeout(copyResetTimeoutRef.current)
     }
@@ -610,67 +609,21 @@ function App() {
       setToastMessage('')
       copyResetTimeoutRef.current = null
     }, 2200)
-  })
-  const focusSearchInput = useEffectEvent(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    if (window.matchMedia('(min-width: 1025px)').matches) {
-      desktopSearchRef.current?.focus()
-      desktopSearchRef.current?.select()
-      return
-    }
-
-    if (!isMobileMenuOpen) {
-      setShouldFocusMobileSearch(true)
-      setIsMobileMenuOpen(true)
-      return
-    }
-
-    mobileSearchRef.current?.focus()
-    mobileSearchRef.current?.select()
-  })
-  const handleCopyAction = useEffectEvent(
-    async (actionId: string, value: string, successMessage: string) => {
-      try {
-        const copied = await copyTextToClipboard(value)
-        if (copied) {
-          announceFeedback(actionId, successMessage)
-          return
-        }
-      } catch {
-        // Fall through to the generic failure message below.
-      }
-
-      setCopiedActionId('')
-      setToastMessage(text(appUi.copyFailed))
-    },
-  )
-  const handleGlobalKeyDown = useEffectEvent((event: KeyboardEvent) => {
-    if (event.defaultPrevented) {
-      return
-    }
-
-    if (event.key === '/' && !isTypingTarget(event.target)) {
-      event.preventDefault()
-      focusSearchInput()
-      return
-    }
-
-    if (event.key === 'Escape') {
-      if (isMobileMenuOpen) {
-        event.preventDefault()
-        closeMobileMenu()
+  }
+  async function handleCopyAction(actionId: string, value: string, successMessage: string) {
+    try {
+      const copied = await copyTextToClipboard(value)
+      if (copied) {
+        announceFeedback(actionId, successMessage)
         return
       }
-
-      if (query) {
-        event.preventDefault()
-        setQuery('')
-      }
+    } catch {
+      // Fall through to the generic failure message below.
     }
-  })
+
+    setCopiedActionId('')
+    setToastMessage(text(appUi.copyFailed))
+  }
 
   function handleSearchChange(event: ChangeEvent<HTMLInputElement>) {
     const nextValue = event.target.value
@@ -680,6 +633,7 @@ function App() {
   }
 
   function closeMobileMenu() {
+    shouldFocusMobileSearchRef.current = false
     setIsMobileMenuOpen(false)
   }
 
@@ -758,7 +712,7 @@ function App() {
     const handleChange = (event: MediaQueryListEvent) => {
       if (event.matches) {
         setIsMobileMenuOpen(false)
-        setShouldFocusMobileSearch(false)
+        shouldFocusMobileSearchRef.current = false
       }
     }
 
@@ -770,14 +724,14 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!isMobileMenuOpen || !shouldFocusMobileSearch) {
+    if (!isMobileMenuOpen || !shouldFocusMobileSearchRef.current) {
       return
     }
 
     mobileSearchRef.current?.focus()
     mobileSearchRef.current?.select()
-    setShouldFocusMobileSearch(false)
-  }, [isMobileMenuOpen, shouldFocusMobileSearch])
+    shouldFocusMobileSearchRef.current = false
+  }, [isMobileMenuOpen])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -801,12 +755,51 @@ function App() {
       return undefined
     }
 
-    window.addEventListener('keydown', handleGlobalKeyDown)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return
+      }
+
+      if (event.key === '/' && !isTypingTarget(event.target)) {
+        event.preventDefault()
+
+        if (window.matchMedia('(min-width: 1025px)').matches) {
+          desktopSearchRef.current?.focus()
+          desktopSearchRef.current?.select()
+          return
+        }
+
+        if (!isMobileMenuOpen) {
+          shouldFocusMobileSearchRef.current = true
+          setIsMobileMenuOpen(true)
+          return
+        }
+
+        mobileSearchRef.current?.focus()
+        mobileSearchRef.current?.select()
+        return
+      }
+
+      if (event.key === 'Escape') {
+        if (isMobileMenuOpen) {
+          event.preventDefault()
+          closeMobileMenu()
+          return
+        }
+
+        if (query) {
+          event.preventDefault()
+          setQuery('')
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      window.removeEventListener('keydown', handleGlobalKeyDown)
+      window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [handleGlobalKeyDown])
+  }, [isMobileMenuOpen, query])
 
   useEffect(() => {
     return () => {

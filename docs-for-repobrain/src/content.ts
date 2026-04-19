@@ -1,15 +1,20 @@
-import architectureDoc from '../../docs/architecture.md?raw'
-import cliDoc from '../../docs/cli.md?raw'
-import demoScriptDoc from '../../docs/demo-script.md?raw'
-import evaluationDoc from '../../docs/evaluation.md?raw'
-import installDoc from '../../docs/install.md?raw'
-import mcpDoc from '../../docs/mcp.md?raw'
-import productionReadinessDoc from '../../docs/production-readiness.md?raw'
-import releaseChecklistDoc from '../../docs/release-checklist.md?raw'
-import runDoc from '../../docs/run.md?raw'
-import uxDoc from '../../docs/ux.md?raw'
-import visionDoc from '../../docs/vision.md?raw'
 import roadmapDoc from '../../ROADMAP.md?raw'
+
+const repoDocs = import.meta.glob('../docs/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
+const repoDoc = (filename: string): string => {
+  const content = repoDocs[`../docs/${filename}`]
+
+  if (!content) {
+    throw new Error(`Missing repository doc: ${filename}`)
+  }
+
+  return content
+}
 
 export type Locale = 'en' | 'vi' | 'zh'
 
@@ -273,12 +278,12 @@ export const uiCopy: UiCopy = {
   ),
   readerEyebrow: t('Reading room', 'Phòng đọc', '阅读区'),
   readerBody: t(
-    'The reader follows the selected language. English shows the source markdown; other locales show an edited reading version built from the same document set.',
+    'The reader follows the selected language. It uses localized reading content when available and falls back to the source markdown when it is not.',
     'Trình đọc sẽ đi theo ngôn ngữ đang chọn. Bản tiếng Anh hiển thị markdown nguồn; các ngôn ngữ khác hiển thị bản đọc đã biên tập từ cùng bộ tài liệu.',
     '阅读区会跟随当前语言。英文显示仓库原始 markdown；其他语言显示基于同一套文档整理出来的阅读版。',
   ),
   originalMarkdownNote: t(
-    'Reader content follows the selected language. English uses the repository markdown; localized views use edited summaries from the same docs.',
+    'Reader content follows the selected language. It prefers localized reading versions and falls back to the repository markdown when no localized entry exists.',
     'Nội dung bên phải luôn theo ngôn ngữ đang chọn. Bản tiếng Anh dùng markdown của repository; các bản còn lại dùng nội dung biên tập từ cùng bộ tài liệu.',
     '右侧内容始终跟随当前语言。英文使用仓库原始 markdown；其他语言使用基于同一套文档整理的阅读内容。',
   ),
@@ -741,9 +746,9 @@ export const releaseStatus: StatusEntry[] = [
   },
   {
     label: t('Docs frontend', 'Frontend tài liệu', '文档前端'),
-    state: 'info',
+    state: 'pass',
     detail: t(
-      'This docs app is the new human-friendly frontend for understanding the repo, commands, and release posture.',
+      'The docs frontend now pulls operational docs plus planning and progress notes from the repository markdown set.',
       'App tài liệu này là frontend thân thiện hơn với con người để hiểu repo, lệnh và trạng thái release.',
       '这个文档应用是新的面向人类的前端，用来理解仓库、命令以及发布状态。',
     ),
@@ -764,6 +769,15 @@ export const releaseStatus: StatusEntry[] = [
       'Still depends on real API keys and provider access beyond the local mocked/default path.',
       'Vẫn phụ thuộc vào API key thật và quyền truy cập provider ngoài đường local mặc định/mocked.',
       '仍然依赖真实 API key 与 provider 访问能力，超出了本地默认或 mock 路径。',
+    ),
+  },
+  {
+    label: t('Current sprint ETA', 'ETA sprint hien tai', 'Current sprint ETA'),
+    state: 'info',
+    detail: t(
+      'Next local hardening checkpoint is estimated for April 22, 2026. Remote release validation still depends on GitHub workflow access and live provider credentials.',
+      'Moc hardening local tiep theo duoc uoc tinh vao ngay April 22, 2026. Phan release validation tu xa van phu thuoc vao GitHub workflow access va provider credentials that.',
+      'Next local hardening checkpoint is estimated for April 22, 2026. Remote release validation still depends on GitHub workflow access and live provider credentials.',
     ),
   },
 ]
@@ -1219,7 +1233,7 @@ export const docsLibrary: DocEntry[] = [
     id: 'vision',
     title: t('Vision', 'Tầm nhìn', '愿景'),
     eyebrow: t('Product direction', 'Định hướng sản phẩm', '产品方向'),
-    path: 'docs/vision.md',
+    path: 'docs-for-repobrain/docs/vision.md',
     summary: t(
       'Why RepoBrain exists, what behavior it is trying to change in coding assistants, and what success looks like.',
       'Vì sao RepoBrain tồn tại, nó đang cố thay đổi hành vi nào của coding assistant, và thế nào là thành công.',
@@ -1227,13 +1241,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Founders, reviewers, new contributors', 'Founder, reviewer, contributor mới', '创始人、评审者、新贡献者'),
     tags: ['product', 'direction', 'why'],
-    content: visionDoc,
+    content: repoDoc('vision.md'),
   },
   {
     id: 'install',
     title: t('Install Guide', 'Hướng dẫn cài đặt', '安装指南'),
     eyebrow: t('Get started', 'Bắt đầu', '开始使用'),
-    path: 'docs/install.md',
+    path: 'docs-for-repobrain/docs/install.md',
     summary: t(
       'Environment setup, package installation, and the minimum path to first use.',
       'Thiết lập môi trường, cài package và con đường ngắn nhất để dùng lần đầu.',
@@ -1241,13 +1255,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Anyone onboarding to the repo', 'Bất kỳ ai đang onboard vào repo', '所有正在上手这个仓库的人'),
     tags: ['install', 'onboarding', 'setup'],
-    content: installDoc,
+    content: repoDoc('install.md'),
   },
   {
     id: 'run',
     title: t('Run Guide', 'Hướng dẫn chạy', '运行指南'),
     eyebrow: t('Daily workflow', 'Luồng làm việc hằng ngày', '日常工作流'),
-    path: 'docs/run.md',
+    path: 'docs-for-repobrain/docs/run.md',
     summary: t(
       'How to run RepoBrain from CLI, browser UI, report mode, MCP mode, and demo prep flows.',
       'Cách chạy RepoBrain từ CLI, browser UI, report mode, MCP mode và các luồng chuẩn bị demo.',
@@ -1255,13 +1269,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Users and operators', 'Người dùng và người vận hành', '用户与操作者'),
     tags: ['run', 'workflow', 'demo'],
-    content: runDoc,
+    content: repoDoc('run.md'),
   },
   {
     id: 'cli',
     title: t('CLI Reference', 'Tham chiếu CLI', 'CLI 参考'),
     eyebrow: t('Command surface', 'Bề mặt lệnh', '命令表面'),
-    path: 'docs/cli.md',
+    path: 'docs-for-repobrain/docs/cli.md',
     summary: t(
       'Descriptions of every primary command, what it returns, and how the tools fit together.',
       'Mô tả từng lệnh chính, những gì nó trả về và cách các công cụ khớp với nhau.',
@@ -1269,13 +1283,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Power users and maintainers', 'Power user và maintainer', '高级用户与维护者'),
     tags: ['cli', 'commands', 'reference'],
-    content: cliDoc,
+    content: repoDoc('cli.md'),
   },
   {
     id: 'architecture',
     title: t('Architecture', 'Kiến trúc', '架构'),
     eyebrow: t('System design', 'Thiết kế hệ thống', '系统设计'),
-    path: 'docs/architecture.md',
+    path: 'docs-for-repobrain/docs/architecture.md',
     summary: t(
       'The retrieval engine, indexing model, grounding flow, and major design tradeoffs behind RepoBrain.',
       'Retrieval engine, mô hình indexing, grounding flow và các tradeoff thiết kế chính của RepoBrain.',
@@ -1283,13 +1297,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Engineers reading the core design', 'Kỹ sư muốn đọc thiết kế lõi', '阅读核心设计的工程师'),
     tags: ['architecture', 'engine', 'design'],
-    content: architectureDoc,
+    content: repoDoc('architecture.md'),
   },
   {
     id: 'mcp',
     title: t('MCP', 'MCP', 'MCP'),
     eyebrow: t('Agent integration', 'Tích hợp agent', 'Agent 集成'),
-    path: 'docs/mcp.md',
+    path: 'docs-for-repobrain/docs/mcp.md',
     summary: t(
       'How RepoBrain exposes tools over a stdio transport for coding assistants and automation layers.',
       'Cách RepoBrain mở công cụ qua stdio transport cho coding assistant và các lớp automation.',
@@ -1297,13 +1311,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Tooling engineers and agent builders', 'Kỹ sư tooling và người xây agent', '工具工程师与 agent 构建者'),
     tags: ['mcp', 'agent', 'integration'],
-    content: mcpDoc,
+    content: repoDoc('mcp.md'),
   },
   {
     id: 'ux',
     title: t('User Experience', 'Trải nghiệm người dùng', '用户体验'),
     eyebrow: t('Interaction design', 'Thiết kế tương tác', '交互设计'),
-    path: 'docs/ux.md',
+    path: 'docs-for-repobrain/docs/ux.md',
     summary: t(
       'What the human-facing product should feel like across CLI, report, and browser surfaces.',
       'Trải nghiệm sản phẩm hướng con người nên như thế nào trên CLI, report và browser UI.',
@@ -1311,13 +1325,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Product and frontend contributors', 'Contributor về product và frontend', '产品与前端贡献者'),
     tags: ['ux', 'frontend', 'design'],
-    content: uxDoc,
+    content: repoDoc('ux.md'),
   },
   {
     id: 'evaluation',
     title: t('Evaluation', 'Đánh giá', '评估'),
     eyebrow: t('Quality signals', 'Tín hiệu chất lượng', '质量信号'),
-    path: 'docs/evaluation.md',
+    path: 'docs-for-repobrain/docs/evaluation.md',
     summary: t(
       'How retrieval quality is measured and what metrics matter for RepoBrain confidence.',
       'Cách đo chất lượng retrieval và metric nào quan trọng đối với confidence của RepoBrain.',
@@ -1325,13 +1339,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Engineers tuning relevance and safety', 'Kỹ sư tinh chỉnh relevance và safety', '调优相关性与安全性的工程师'),
     tags: ['evaluation', 'benchmark', 'quality'],
-    content: evaluationDoc,
+    content: repoDoc('evaluation.md'),
   },
   {
     id: 'production-readiness',
     title: t('Production Readiness', 'Sẵn sàng production', '生产就绪'),
     eyebrow: t('Operator checklist', 'Checklist vận hành', '操作者清单'),
-    path: 'docs/production-readiness.md',
+    path: 'docs-for-repobrain/docs/production-readiness.md',
     summary: t(
       'The bridge between "it works locally" and "it is safe enough to ship or demo seriously".',
       'Cầu nối giữa "chạy được ở local" và "đủ an toàn để ship hoặc demo nghiêm túc".',
@@ -1339,13 +1353,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Operators and release owners', 'Người vận hành và chủ release', '操作者与发布负责人'),
     tags: ['production', 'readiness', 'ship'],
-    content: productionReadinessDoc,
+    content: repoDoc('production-readiness.md'),
   },
   {
     id: 'release-checklist',
     title: t('Release Checklist', 'Checklist phát hành', '发布检查清单'),
     eyebrow: t('Publish flow', 'Luồng publish', '发布流程'),
-    path: 'docs/release-checklist.md',
+    path: 'docs-for-repobrain/docs/release-checklist.md',
     summary: t(
       'What to verify before tagging or publishing, including artifact validation and frontend packaging.',
       'Những gì cần kiểm tra trước khi gắn tag hoặc publish, bao gồm artifact validation và frontend packaging.',
@@ -1353,13 +1367,13 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Release owners', 'Người phụ trách release', '发布负责人'),
     tags: ['release', 'checklist', 'publish'],
-    content: releaseChecklistDoc,
+    content: repoDoc('release-checklist.md'),
   },
   {
     id: 'demo-script',
     title: t('Demo Script', 'Kịch bản demo', '演示脚本'),
     eyebrow: t('Show the product well', 'Demo sản phẩm cho đẹp', '把产品讲清楚'),
-    path: 'docs/demo-script.md',
+    path: 'docs-for-repobrain/docs/demo-script.md',
     summary: t(
       'A practical sequence for live demos that keeps the story grounded and legible to non-experts.',
       'Một chuỗi thao tác thực tế cho live demo, giúp câu chuyện vẫn grounded và dễ hiểu với người không chuyên.',
@@ -1367,7 +1381,119 @@ export const docsLibrary: DocEntry[] = [
     ),
     audience: t('Demo presenters and OSS launch prep', 'Người demo và người chuẩn bị OSS launch', '演示者与 OSS 发布准备者'),
     tags: ['demo', 'presentation', 'script'],
-    content: demoScriptDoc,
+    content: repoDoc('demo-script.md'),
+  },
+  {
+    id: 'meeting-status',
+    title: t('Meeting Status', 'Meeting Status', 'Meeting Status'),
+    eyebrow: t('Current sprint snapshot', 'Current sprint snapshot', 'Current sprint snapshot'),
+    path: 'docs-for-repobrain/docs/meeting-status-2026-04-19.md',
+    summary: t(
+      'A meeting-style status note that answers what is done, what is in progress, what is blocked, and the current ETA.',
+      'A meeting-style status note that answers what is done, what is in progress, what is blocked, and the current ETA.',
+      'A meeting-style status note that answers what is done, what is in progress, what is blocked, and the current ETA.',
+    ),
+    audience: t('Maintainers, reviewers, and planning sessions', 'Maintainers, reviewers, and planning sessions', 'Maintainers, reviewers, and planning sessions'),
+    tags: ['status', 'meeting', 'plan', 'eta'],
+    content: repoDoc('meeting-status-2026-04-19.md'),
+  },
+  {
+    id: 'product-spec',
+    title: t('Product Spec', 'Product Spec', 'Product Spec'),
+    eyebrow: t('Scope and user jobs', 'Scope and user jobs', 'Scope and user jobs'),
+    path: 'docs-for-repobrain/docs/product-spec.md',
+    summary: t(
+      'The one-sentence pitch, target users, v1 scope, non-goals, and success criteria for RepoBrain.',
+      'The one-sentence pitch, target users, v1 scope, non-goals, and success criteria for RepoBrain.',
+      'The one-sentence pitch, target users, v1 scope, non-goals, and success criteria for RepoBrain.',
+    ),
+    audience: t('Product, engineering, and OSS reviewers', 'Product, engineering, and OSS reviewers', 'Product, engineering, and OSS reviewers'),
+    tags: ['product', 'scope', 'spec'],
+    content: repoDoc('product-spec.md'),
+  },
+  {
+    id: 'config',
+    title: t('Configuration', 'Configuration', 'Configuration'),
+    eyebrow: t('Runtime setup', 'Runtime setup', 'Runtime setup'),
+    path: 'docs-for-repobrain/docs/config.md',
+    summary: t(
+      'Explains `repobrain.toml`, indexing limits, parser toggles, provider choices, and environment expectations.',
+      'Explains `repobrain.toml`, indexing limits, parser toggles, provider choices, and environment expectations.',
+      'Explains `repobrain.toml`, indexing limits, parser toggles, provider choices, and environment expectations.',
+    ),
+    audience: t('Operators and maintainers', 'Operators and maintainers', 'Operators and maintainers'),
+    tags: ['config', 'providers', 'runtime'],
+    content: repoDoc('config.md'),
+  },
+  {
+    id: 'contracts',
+    title: t('Contracts', 'Contracts', 'Contracts'),
+    eyebrow: t('Public shapes', 'Public shapes', 'Public shapes'),
+    path: 'docs-for-repobrain/docs/contracts.md',
+    summary: t(
+      'Defines CLI, MCP, payload, and diagnostics contracts so integrations can depend on stable shapes.',
+      'Defines CLI, MCP, payload, and diagnostics contracts so integrations can depend on stable shapes.',
+      'Defines CLI, MCP, payload, and diagnostics contracts so integrations can depend on stable shapes.',
+    ),
+    audience: t('Integrators and maintainers', 'Integrators and maintainers', 'Integrators and maintainers'),
+    tags: ['contracts', 'api', 'mcp', 'cli'],
+    content: repoDoc('contracts.md'),
+  },
+  {
+    id: 'decision-log',
+    title: t('Decision Log', 'Decision Log', 'Decision Log'),
+    eyebrow: t('Architecture decisions', 'Architecture decisions', 'Architecture decisions'),
+    path: 'docs-for-repobrain/docs/decision-log.md',
+    summary: t(
+      'Records the major technical choices behind RepoBrain and the tradeoffs accepted by the project.',
+      'Records the major technical choices behind RepoBrain and the tradeoffs accepted by the project.',
+      'Records the major technical choices behind RepoBrain and the tradeoffs accepted by the project.',
+    ),
+    audience: t('Engineers reading project history', 'Engineers reading project history', 'Engineers reading project history'),
+    tags: ['decisions', 'architecture', 'tradeoffs'],
+    content: repoDoc('decision-log.md'),
+  },
+  {
+    id: 'implementation-plan',
+    title: t('Implementation Plan', 'Implementation Plan', 'Implementation Plan'),
+    eyebrow: t('Legacy execution plan', 'Legacy execution plan', 'Legacy execution plan'),
+    path: 'docs-for-repobrain/docs/implementation-plan.md',
+    summary: t(
+      'The older multi-epic implementation plan that framed indexing, retrieval, harness, providers, and OSS polish work.',
+      'The older multi-epic implementation plan that framed indexing, retrieval, harness, providers, and OSS polish work.',
+      'The older multi-epic implementation plan that framed indexing, retrieval, harness, providers, and OSS polish work.',
+    ),
+    audience: t('Maintainers comparing old plan versus current state', 'Maintainers comparing old plan versus current state', 'Maintainers comparing old plan versus current state'),
+    tags: ['plan', 'implementation', 'history'],
+    content: repoDoc('implementation-plan.md'),
+  },
+  {
+    id: 'backlog',
+    title: t('Backlog', 'Backlog', 'Backlog'),
+    eyebrow: t('Open work', 'Open work', 'Open work'),
+    path: 'docs-for-repobrain/docs/backlog.md',
+    summary: t(
+      'Prioritized backlog items grouped by urgency, including retrieval, parser, release, and UX follow-ups.',
+      'Prioritized backlog items grouped by urgency, including retrieval, parser, release, and UX follow-ups.',
+      'Prioritized backlog items grouped by urgency, including retrieval, parser, release, and UX follow-ups.',
+    ),
+    audience: t('Maintainers planning next tasks', 'Maintainers planning next tasks', 'Maintainers planning next tasks'),
+    tags: ['backlog', 'priorities', 'tasks'],
+    content: repoDoc('backlog.md'),
+  },
+  {
+    id: 'releases',
+    title: t('Releases', 'Releases', 'Releases'),
+    eyebrow: t('Version line strategy', 'Version line strategy', 'Version line strategy'),
+    path: 'docs-for-repobrain/docs/releases.md',
+    summary: t(
+      'Explains what each release line is meant to prove, from MVP through a stable 1.0 trustable product.',
+      'Explains what each release line is meant to prove, from MVP through a stable 1.0 trustable product.',
+      'Explains what each release line is meant to prove, from MVP through a stable 1.0 trustable product.',
+    ),
+    audience: t('Release owners and roadmap readers', 'Release owners and roadmap readers', 'Release owners and roadmap readers'),
+    tags: ['releases', 'versions', 'strategy'],
+    content: repoDoc('releases.md'),
   },
   {
     id: 'roadmap',
@@ -1382,5 +1508,103 @@ export const docsLibrary: DocEntry[] = [
     audience: t('Anyone planning future work', 'Bất kỳ ai đang lên kế hoạch tương lai', '所有正在规划未来工作的人'),
     tags: ['roadmap', 'versions', 'future'],
     content: roadmapDoc,
+  },
+  {
+    id: 'self-review',
+    title: t('Self Review', 'Self Review', 'Self Review'),
+    eyebrow: t('Internal assessment', 'Internal assessment', 'Internal assessment'),
+    path: 'docs-for-repobrain/docs/self-review.md',
+    summary: t(
+      'A candid assessment of strengths, thin spots, technical debt, and release risks in the current product.',
+      'A candid assessment of strengths, thin spots, technical debt, and release risks in the current product.',
+      'A candid assessment of strengths, thin spots, technical debt, and release risks in the current product.',
+    ),
+    audience: t('Maintainers and reviewers', 'Maintainers and reviewers', 'Maintainers and reviewers'),
+    tags: ['review', 'risks', 'debt'],
+    content: repoDoc('self-review.md'),
+  },
+  {
+    id: 'review-vi',
+    title: t('Vietnamese Review', 'Vietnamese Review', 'Vietnamese Review'),
+    eyebrow: t('Code and product review', 'Code and product review', 'Code and product review'),
+    path: 'docs-for-repobrain/docs/review-vi.md',
+    summary: t(
+      'A Vietnamese technical review focused on findings, risks, regressions, and the fixes already landed.',
+      'A Vietnamese technical review focused on findings, risks, regressions, and the fixes already landed.',
+      'A Vietnamese technical review focused on findings, risks, regressions, and the fixes already landed.',
+    ),
+    audience: t('Vietnamese-speaking maintainers and reviewers', 'Vietnamese-speaking maintainers and reviewers', 'Vietnamese-speaking maintainers and reviewers'),
+    tags: ['review', 'vietnamese', 'findings'],
+    content: repoDoc('review-vi.md'),
+  },
+  {
+    id: 'hidemium-chatbot-plan',
+    title: t('Project Plan Meeting Note', 'Project Plan Meeting Note', 'Project Plan Meeting Note'),
+    eyebrow: t('Plan review snapshot', 'Plan review snapshot', 'Plan review snapshot'),
+    path: 'docs-for-repobrain/docs/hidemium-chatbot-plan.md',
+    summary: t(
+      'A meeting-style plan review that evaluates the old implementation plan, current reality, and the next three phases.',
+      'A meeting-style plan review that evaluates the old implementation plan, current reality, and the next three phases.',
+      'A meeting-style plan review that evaluates the old implementation plan, current reality, and the next three phases.',
+    ),
+    audience: t('Planning sessions and maintainers', 'Planning sessions and maintainers', 'Planning sessions and maintainers'),
+    tags: ['plan', 'meeting', 'status'],
+    content: repoDoc('hidemium-chatbot-plan.md'),
+  },
+  {
+    id: 'gemini-fallback-handoff',
+    title: t('Gemini Fallback Handoff', 'Gemini Fallback Handoff', 'Gemini Fallback Handoff'),
+    eyebrow: t('Feature handoff note', 'Feature handoff note', 'Feature handoff note'),
+    path: 'docs-for-repobrain/docs/gemini-fallback-handoff.md',
+    summary: t(
+      'A detailed handoff covering Gemini rerank failover, the React browser frontend, verification, and branch context.',
+      'A detailed handoff covering Gemini rerank failover, the React browser frontend, verification, and branch context.',
+      'A detailed handoff covering Gemini rerank failover, the React browser frontend, verification, and branch context.',
+    ),
+    audience: t('Maintainers continuing release work', 'Maintainers continuing release work', 'Maintainers continuing release work'),
+    tags: ['handoff', 'gemini', 'release'],
+    content: repoDoc('gemini-fallback-handoff.md'),
+  },
+  {
+    id: 'progress-artifact-inspection',
+    title: t('Artifact Inspection Progress', 'Artifact Inspection Progress', 'Artifact Inspection Progress'),
+    eyebrow: t('Release follow-up', 'Release follow-up', 'Release follow-up'),
+    path: 'docs-for-repobrain/docs/progress-artifact-inspection-2026-04-18.md',
+    summary: t(
+      'Progress note for frontend asset builds, package build fixes, and strict artifact inspection work.',
+      'Progress note for frontend asset builds, package build fixes, and strict artifact inspection work.',
+      'Progress note for frontend asset builds, package build fixes, and strict artifact inspection work.',
+    ),
+    audience: t('Release owners and maintainers', 'Release owners and maintainers', 'Release owners and maintainers'),
+    tags: ['progress', 'artifacts', 'release'],
+    content: repoDoc('progress-artifact-inspection-2026-04-18.md'),
+  },
+  {
+    id: 'progress-release-validation',
+    title: t('Release Validation Progress', 'Release Validation Progress', 'Release Validation Progress'),
+    eyebrow: t('Release follow-up', 'Release follow-up', 'Release follow-up'),
+    path: 'docs-for-repobrain/docs/progress-release-validation-2026-04-18.md',
+    summary: t(
+      'Progress note for release-check work, documentation alignment, and the first release validation follow-up round.',
+      'Progress note for release-check work, documentation alignment, and the first release validation follow-up round.',
+      'Progress note for release-check work, documentation alignment, and the first release validation follow-up round.',
+    ),
+    audience: t('Release owners and maintainers', 'Release owners and maintainers', 'Release owners and maintainers'),
+    tags: ['progress', 'release', 'validation'],
+    content: repoDoc('progress-release-validation-2026-04-18.md'),
+  },
+  {
+    id: 'progress-remote-release-validation',
+    title: t('Remote Release Validation Progress', 'Remote Release Validation Progress', 'Remote Release Validation Progress'),
+    eyebrow: t('Remote release blocker note', 'Remote release blocker note', 'Remote release blocker note'),
+    path: 'docs-for-repobrain/docs/progress-remote-release-validation-2026-04-18.md',
+    summary: t(
+      'Progress note for the remaining remote release workflow validation and live provider checks that still need external access.',
+      'Progress note for the remaining remote release workflow validation and live provider checks that still need external access.',
+      'Progress note for the remaining remote release workflow validation and live provider checks that still need external access.',
+    ),
+    audience: t('Release owners and maintainers', 'Release owners and maintainers', 'Release owners and maintainers'),
+    tags: ['progress', 'remote', 'release'],
+    content: repoDoc('progress-remote-release-validation-2026-04-18.md'),
   },
 ]

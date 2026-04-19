@@ -101,7 +101,7 @@ This unreleased track now maps most closely to the `0.5.x` integration line: it 
 
 ## How To Run
 
-Full bilingual installation instructions are available in [docs/install.md](docs/install.md).
+Full bilingual installation instructions are available in [docs-for-repobrain/docs/install.md](docs-for-repobrain/docs/install.md).
 
 Fast path for end users:
 
@@ -171,7 +171,7 @@ repobrain serve-mcp
 
 On Windows, double-click `chat.cmd` for local chat or `report.cmd` for the visual dashboard. Both launchers prefer the project virtualenv and set `PYTHONPATH=src`.
 
-See the full run guide in [docs/run.md](docs/run.md).
+See the full run guide in [docs-for-repobrain/docs/run.md](docs-for-repobrain/docs/run.md).
 
 Frontend source for the browser UI lives in `webapp/`. The built local assets are generated into `webapp/dist/`, and `repobrain serve-web` serves that React build directly. If `webapp/dist/` is missing, run `npm run build` inside `webapp/` once before starting the Python web server.
 
@@ -331,26 +331,26 @@ Start from `.env.example` and fill `GEMINI_API_KEY`.
 
 ## Docs
 
-- [Vision](docs/vision.md)
-- [Install Guide](docs/install.md)
-- [Product Spec](docs/product-spec.md)
-- [Production Readiness](docs/production-readiness.md)
-- [Release Checklist](docs/release-checklist.md)
-- [Architecture](docs/architecture.md)
-- [CLI](docs/cli.md)
-- [User Experience](docs/ux.md)
-- [Run Guide](docs/run.md)
-- [MCP](docs/mcp.md)
-- [Config](docs/config.md)
-- [Contracts](docs/contracts.md)
-- [Evaluation](docs/evaluation.md)
-- [Demo Script](docs/demo-script.md)
-- [Releases](docs/releases.md)
-- [Implementation Plan](docs/implementation-plan.md)
-- [Decision Log](docs/decision-log.md)
-- [Backlog](docs/backlog.md)
-- [Self Review](docs/self-review.md)
-- [Vietnamese Review](docs/review-vi.md)
+- [Vision](docs-for-repobrain/docs/vision.md)
+- [Install Guide](docs-for-repobrain/docs/install.md)
+- [Product Spec](docs-for-repobrain/docs/product-spec.md)
+- [Production Readiness](docs-for-repobrain/docs/production-readiness.md)
+- [Release Checklist](docs-for-repobrain/docs/release-checklist.md)
+- [Architecture](docs-for-repobrain/docs/architecture.md)
+- [CLI](docs-for-repobrain/docs/cli.md)
+- [User Experience](docs-for-repobrain/docs/ux.md)
+- [Run Guide](docs-for-repobrain/docs/run.md)
+- [MCP](docs-for-repobrain/docs/mcp.md)
+- [Config](docs-for-repobrain/docs/config.md)
+- [Contracts](docs-for-repobrain/docs/contracts.md)
+- [Evaluation](docs-for-repobrain/docs/evaluation.md)
+- [Demo Script](docs-for-repobrain/docs/demo-script.md)
+- [Releases](docs-for-repobrain/docs/releases.md)
+- [Implementation Plan](docs-for-repobrain/docs/implementation-plan.md)
+- [Decision Log](docs-for-repobrain/docs/decision-log.md)
+- [Backlog](docs-for-repobrain/docs/backlog.md)
+- [Self Review](docs-for-repobrain/docs/self-review.md)
+- [Vietnamese Review](docs-for-repobrain/docs/review-vi.md)
 - [Roadmap](ROADMAP.md)
 - [Feature Direction](feat.md)
 - [Security Policy](SECURITY.md)
@@ -365,7 +365,7 @@ Start from `.env.example` and fill `GEMINI_API_KEY`.
 - `0.5.x`: provider adapters and richer MCP ergonomics
 - `1.0.0`: trusted local codebase memory product with stable contracts
 
-See the detailed breakdown in [ROADMAP.md](ROADMAP.md) and [docs/releases.md](docs/releases.md).
+See the detailed breakdown in [ROADMAP.md](ROADMAP.md) and [docs-for-repobrain/docs/releases.md](docs-for-repobrain/docs/releases.md).
 
 ## Status
 

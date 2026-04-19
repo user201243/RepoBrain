@@ -33,5 +33,6 @@ npm run lint
 - RepoBrain logo and brand styling based on the project artwork
 - searchable command catalog
 - searchable docs library
-- embedded markdown reading room sourced from the real repo docs
+- embedded markdown reading room sourced directly from the real repo docs
+- planning, progress, and meeting-status notes surfaced from `./docs/`
 - release-state summary for what is done locally versus what still needs remote validation
