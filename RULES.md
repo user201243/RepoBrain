@@ -9,7 +9,7 @@ These rules keep RepoBrain development consistent. The point is to make each cyc
 - Build RepoBrain as a local-first codebase memory engine.
 - Prefer trust, clarity, and evidence over feature breadth.
 - Do not add hosted or autonomous behavior until local grounding is genuinely strong.
-- Every user-facing capability should map cleanly to a release line in `feat.md` and `ROADMAP.md`.
+- Every user-facing capability should map cleanly to a release line in `feat.md` and `docs-for-repobrain/docs/roadmap.md`.
 
 ## Engineering Rules
 

@@ -1,0 +1,50 @@
+<svg width="1120" height="640" viewBox="0 0 1120 640" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">RepoBrain CLI terminal preview</title>
+  <desc id="desc">A terminal-style preview showing RepoBrain CLI commands for init, review, query, and release checks.</desc>
+  <rect width="1120" height="640" rx="34" fill="#080B12"/>
+  <rect x="1" y="1" width="1118" height="638" rx="33" stroke="url(#border)" stroke-opacity="0.9" stroke-width="2"/>
+  <path d="M0 130C170 56 343 55 520 122C703 191 877 188 1120 78V0H0V130Z" fill="url(#glow)" opacity="0.72"/>
+  <circle cx="900" cy="124" r="202" fill="#5067FF" opacity="0.14"/>
+  <circle cx="197" cy="502" r="232" fill="#34D399" opacity="0.08"/>
+  <rect x="56" y="56" width="1008" height="528" rx="26" fill="#0C111C" fill-opacity="0.96"/>
+  <rect x="56.75" y="56.75" width="1006.5" height="526.5" rx="25.25" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1.5"/>
+  <rect x="56" y="56" width="1008" height="68" rx="26" fill="#111827"/>
+  <path d="M56 98H1064" stroke="#FFFFFF" stroke-opacity="0.09"/>
+  <circle cx="94" cy="90" r="8" fill="#FF665E"/>
+  <circle cx="122" cy="90" r="8" fill="#FFBD2E"/>
+  <circle cx="150" cy="90" r="8" fill="#27C93F"/>
+  <text x="560" y="96" text-anchor="middle" fill="#B8C0D8" font-family="Cascadia Code, Consolas, monospace" font-size="18" font-weight="700">RepoBrain CLI</text>
+  <g font-family="Cascadia Code, Consolas, monospace" font-size="22">
+    <text x="88" y="170" fill="#8D7DFF">$</text>
+    <text x="122" y="170" fill="#F2F5FF">repobrain init --repo . --format text</text>
+    <text x="122" y="214" fill="#8EA0C8">active repo</text>
+    <text x="288" y="214" fill="#F2F5FF">C:\Users\ASUS\Desktop\new-AI</text>
+    <text x="88" y="274" fill="#8D7DFF">$</text>
+    <text x="122" y="274" fill="#F2F5FF">repobrain review --format text</text>
+    <text x="122" y="318" fill="#34D399">security: 0 critical</text>
+    <text x="394" y="318" fill="#FBBF24">production: 2 follow-ups</text>
+    <text x="88" y="378" fill="#8D7DFF">$</text>
+    <text x="122" y="378" fill="#F2F5FF">repobrain query "Where is release-check implemented?"</text>
+    <text x="122" y="422" fill="#8EA0C8">confidence</text>
+    <text x="260" y="422" fill="#F2F5FF">0.84</text>
+    <text x="356" y="422" fill="#8EA0C8">top files</text>
+    <text x="486" y="422" fill="#F2F5FF">src/repobrain/cli.py</text>
+    <text x="486" y="464" fill="#F2F5FF">src/repobrain/release_check.py</text>
+    <text x="88" y="524" fill="#8D7DFF">$</text>
+    <text x="122" y="524" fill="#F2F5FF">repobrain release-check --require-dist --format text</text>
+    <text x="122" y="568" fill="#34D399">local gates passed</text>
+    <text x="366" y="568" fill="#8EA0C8">remote validation still explicit</text>
+  </g>
+  <defs>
+    <linearGradient id="border" x1="24" y1="0" x2="1095" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8D7DFF"/>
+      <stop offset="0.47" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#5067FF"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1120" y2="150" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8D7DFF" stop-opacity="0.32"/>
+      <stop offset="0.48" stop-color="#2DD4BF" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#5067FF" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+</svg>

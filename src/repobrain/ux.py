@@ -821,6 +821,30 @@ def cli_wordmark() -> str:
     )
 
 
+def _terminal_columns() -> int:
+    try:
+        return int(os.get_terminal_size().columns)
+    except OSError:
+        return 80
+
+
+def _center_block_lines(lines: list[str], width: int) -> list[str]:
+    """Pad each non-empty line so the block reads centered for fixed-width terminals."""
+    if width < 8:
+        return lines
+    out: list[str] = []
+    for line in lines:
+        if not line:
+            out.append(line)
+            continue
+        if len(line) >= width:
+            out.append(line)
+            continue
+        pad = max(0, (width - len(line)) // 2)
+        out.append(f"{' ' * pad}{line}")
+    return out
+
+
 def _terminal_supports_color(stream: Any | None = None) -> bool:
     if os.environ.get("NO_COLOR"):
         return False
@@ -922,6 +946,8 @@ def _style_terminal_block(text: str) -> str:
 
 def render_cli_wordmark() -> str:
     lines = cli_wordmark().splitlines()
+    if getattr(sys.stdout, "isatty", lambda: False)():
+        lines = _center_block_lines(lines, _terminal_columns())
     if not _terminal_supports_color():
         return "\n".join(lines)
     return "\n".join(

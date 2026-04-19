@@ -351,7 +351,7 @@ Start from `.env.example` and fill `GEMINI_API_KEY`.
 - [Backlog](docs-for-repobrain/docs/backlog.md)
 - [Self Review](docs-for-repobrain/docs/self-review.md)
 - [Vietnamese Review](docs-for-repobrain/docs/review-vi.md)
-- [Roadmap](ROADMAP.md)
+- [Roadmap](docs-for-repobrain/docs/roadmap.md)
 - [Feature Direction](feat.md)
 - [Security Policy](SECURITY.md)
 - [Repo Rules](RULES.md)
@@ -365,7 +365,7 @@ Start from `.env.example` and fill `GEMINI_API_KEY`.
 - `0.5.x`: provider adapters and richer MCP ergonomics
 - `1.0.0`: trusted local codebase memory product with stable contracts
 
-See the detailed breakdown in [ROADMAP.md](ROADMAP.md) and [docs-for-repobrain/docs/releases.md](docs-for-repobrain/docs/releases.md).
+See the detailed breakdown in [docs-for-repobrain/docs/roadmap.md](docs-for-repobrain/docs/roadmap.md) and [docs-for-repobrain/docs/releases.md](docs-for-repobrain/docs/releases.md).
 
 ## Status
 

@@ -1,0 +1,52 @@
+.docs-app {
+  min-height: 100vh;
+  color: var(--text);
+}
+
+.desktop-only {
+  display: flex !important;
+}
+
+.mobile-only {
+  display: none !important;
+}
+
+.docs-header-inner,
+.docs-layout {
+  width: min(1480px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.docs-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+  padding: 28px 0 64px;
+}
+
+.docs-main {
+  display: grid;
+  min-width: 0;
+  gap: 42px;
+}
+
+.docs-empty {
+  display: grid;
+  gap: 16px;
+  max-width: 680px;
+  padding-top: 36px;
+}
+
+.docs-empty p,
+.docs-empty h2 {
+  margin: 0;
+}
+
+.docs-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(8, 10, 18, 0.48);
+  border: none;
+}

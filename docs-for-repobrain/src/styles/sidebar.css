@@ -1,0 +1,153 @@
+.docs-sidebar {
+  position: sticky;
+  top: 102px;
+  max-height: calc(100vh - 118px);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.docs-sidebar-inner {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  max-height: calc(100vh - 118px);
+  overflow-y: auto;
+}
+
+.docs-sidebar-inner::-webkit-scrollbar {
+  width: 10px;
+}
+
+.docs-sidebar-inner::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border-strong) 64%, transparent);
+  border-radius: 999px;
+}
+
+.docs-sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.docs-sidebar-top strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--heading);
+  font-size: 1rem;
+}
+
+.docs-sidebar-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.docs-sidebar-repo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.docs-sidebar-locale {
+  justify-content: stretch;
+}
+
+.docs-sidebar-locale .docs-locale-button {
+  flex: 1 1 0;
+}
+
+.docs-sidebar-filter {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.docs-sidebar-filter strong {
+  color: var(--heading);
+}
+
+.docs-sidebar-nav {
+  display: grid;
+  gap: 10px;
+}
+
+.docs-sidebar-group {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  padding-bottom: 10px;
+}
+
+.docs-sidebar-group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.docs-sidebar-group summary {
+  position: relative;
+  padding: 6px 28px 10px 0;
+  cursor: pointer;
+  list-style: none;
+  color: var(--heading);
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.docs-sidebar-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.docs-sidebar-group summary::after {
+  content: '▾';
+  position: absolute;
+  top: 5px;
+  right: 0;
+  color: var(--muted);
+  transition: transform 180ms ease;
+}
+
+.docs-sidebar-group:not([open]) summary::after {
+  transform: rotate(-90deg);
+}
+
+.docs-sidebar-list {
+  display: grid;
+  gap: 4px;
+}
+
+.docs-sidebar-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.docs-sidebar-item.active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  color: var(--heading);
+}

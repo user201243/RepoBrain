@@ -1068,7 +1068,10 @@ export function App() {
         </article>
 
         <article className="hero-card import-card">
-          <h2>{t.importTitle}</h2>
+          <div className="card-title-row">
+            <span className="card-step-badge">01</span>
+            <h2>{t.importTitle}</h2>
+          </div>
           <form className="panel-form" onSubmit={handleImport}>
             <label htmlFor="repoPath">{t.projectPath}</label>
             <input
@@ -1110,7 +1113,7 @@ export function App() {
       </section>
 
       <section className="workspace-grid">
-        <article className="panel-card">
+        <article className="panel-card maintenance-card">
           <h2>{t.actionsTitle}</h2>
           <div className="button-grid">
             {actionButtons.map((item) => (
@@ -1137,8 +1140,11 @@ export function App() {
           {message ? <div className="notice-box">{message}</div> : null}
         </article>
 
-        <article className="panel-card">
-          <h2>{t.queryTitle}</h2>
+        <article className="panel-card query-card">
+          <div className="card-title-row">
+            <span className="card-step-badge">02</span>
+            <h2>{t.queryTitle}</h2>
+          </div>
           <form className="panel-form" onSubmit={handleQuery}>
             <label htmlFor="modeSelect">{t.mode}</label>
             <select id="modeSelect" value={mode} onChange={(event) => setMode(event.target.value as QueryMode)}>
@@ -1162,8 +1168,11 @@ export function App() {
           <p className="muted-copy">{t.reportHint}</p>
         </article>
 
-        <article className="panel-card">
-          <h2>{t.patchReviewTitle}</h2>
+        <article className="panel-card patch-card">
+          <div className="card-title-row">
+            <span className="card-step-badge">03</span>
+            <h2>{t.patchReviewTitle}</h2>
+          </div>
           <form className="panel-form" onSubmit={handlePatchReview}>
             <label htmlFor="patchBase">{t.patchBase}</label>
             <input
