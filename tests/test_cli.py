@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from repobrain.cli import main
 from repobrain.engine.core import RepoBrainEngine
 from repobrain.models import FileEvidence, QueryIntent, QueryPlan, QueryResult
@@ -114,6 +116,49 @@ def test_cli_text_output_and_quickstart(mixed_repo: Path, capsys) -> None:
     assert "RepoBrain Quickstart" in quickstart_output
     assert "repobrain review --format text" in quickstart_output
     assert "repobrain ship --format text" in quickstart_output
+
+
+def test_cli_patch_review_outputs_text_and_json(patch_review_repo: Path, capsys) -> None:
+    assert main(["init", "--repo", str(patch_review_repo), "--force"]) == 0
+    capsys.readouterr()
+    assert main(["index", "--repo", str(patch_review_repo)]) == 0
+    capsys.readouterr()
+
+    route_path = patch_review_repo / "backend" / "app" / "api" / "auth.py"
+    route_path.write_text(
+        route_path.read_text(encoding="utf-8") + "\n\nasync def audit_patch() -> None:\n    return None\n",
+        encoding="utf-8",
+    )
+
+    assert main(["patch-review", "--repo", str(patch_review_repo), "--format", "text"]) == 0
+    text_output = capsys.readouterr().out
+    assert "RepoBrain Patch Review" in text_output
+    assert "Changed files:" in text_output
+    assert "Suggested tests:" in text_output
+    assert "Config surfaces:" in text_output
+
+    assert main(["patch-review", "--repo", str(patch_review_repo)]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["kind"] == "patch_review"
+    assert payload["changed_files"]
+    assert "risk_label" in payload
+
+
+def test_cli_patch_review_rejects_base_and_files_together(patch_review_repo: Path) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(
+            [
+                "patch-review",
+                "--repo",
+                str(patch_review_repo),
+                "--base",
+                "main",
+                "--files",
+                "backend/app/api/auth.py",
+            ]
+        )
+
+    assert excinfo.value.code == 2
 
 
 def test_cli_report_generates_local_html(mixed_repo: Path, tmp_path: Path, capsys) -> None:

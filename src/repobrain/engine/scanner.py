@@ -275,16 +275,33 @@ class RepositoryScanner:
         for path in self.root.rglob("*"):
             if not path.is_file():
                 continue
-            rel_path = path.relative_to(self.root).as_posix()
-            language = LANGUAGE_BY_SUFFIX.get(path.suffix.lower())
-            if language is None:
-                continue
-            if self._should_ignore(path, rel_path):
-                continue
-            if path.stat().st_size > self.config.indexing.max_file_size_bytes:
-                continue
-            candidates.append(FileCandidate(path=path, rel_path=rel_path, language=language, role=self._detect_role(rel_path)))
+            candidate = self.candidate_for_path(path)
+            if candidate is not None:
+                candidates.append(candidate)
         return sorted(candidates, key=lambda item: item.rel_path)
+
+    def detect_role(self, rel_path: str) -> str:
+        return self._detect_role(rel_path)
+
+    def candidate_for_path(self, repo_path: str | Path) -> FileCandidate | None:
+        path = Path(repo_path)
+        if not path.is_absolute():
+            path = self.root / path
+        path = path.resolve()
+        if not path.exists() or not path.is_file():
+            return None
+        try:
+            rel_path = path.relative_to(self.root).as_posix()
+        except ValueError:
+            return None
+        language = LANGUAGE_BY_SUFFIX.get(path.suffix.lower())
+        if language is None:
+            return None
+        if self._should_ignore(path, rel_path):
+            return None
+        if path.stat().st_size > self.config.indexing.max_file_size_bytes:
+            return None
+        return FileCandidate(path=path, rel_path=rel_path, language=language, role=self._detect_role(rel_path))
 
     def parse(self, candidate: FileCandidate) -> ParsedDocument:
         content = candidate.path.read_text(encoding="utf-8", errors="ignore")

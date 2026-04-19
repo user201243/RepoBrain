@@ -150,7 +150,7 @@ Web import flow:
 2. Click `Import + Index`.
 3. Wait for indexing to finish.
 4. Switch tracked repos or store a short repo memory note if you want to keep the thread.
-5. Ask grounded questions, or switch to cross-repo mode to compare evidence across tracked projects.
+5. Ask grounded questions, run `Patch Review`, or switch to cross-repo mode to compare evidence across tracked projects.
 6. Run `Doctor`, `Provider Smoke`, `Save Baseline`, or `Scan Project Review` from the action panel.
 7. Open the report directly from the browser UI when needed.
 
@@ -179,6 +179,7 @@ This starts a stdio JSON transport for tools such as:
 - `analyze_impact`
 - `suggest_edit_targets`
 - `build_change_context`
+- `review_patch`
 - `review_codebase`
 - `assess_ship_readiness`
 - `list_workspace_projects`

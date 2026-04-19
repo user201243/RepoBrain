@@ -63,6 +63,14 @@ class RepoBrainMCPServer:
                 "Return a compact grounded change context for an agent planner.",
                 lambda args: self.engine.build_change_context(str(args["query"])),
             ),
+            "review_patch": ToolDefinition(
+                "review_patch",
+                "Review the current patch or an explicit diff target set and surface adjacent files, tests, config touchpoints, and risk warnings.",
+                lambda args: self.engine.patch_review(
+                    base=str(args.get("base", "")).strip() or None,
+                    files=list(args.get("files", [])) if isinstance(args.get("files"), list) else None,
+                ).to_dict(),
+            ),
             "review_codebase": ToolDefinition(
                 "review_codebase",
                 "Scan the repository and summarize the most important production, security, and code-quality gaps.",
@@ -144,6 +152,17 @@ class RepoBrainMCPServer:
             if focus not in {item.value for item in ReviewFocus}:
                 raise ValueError(f"`focus` for tool `{tool_name}` must be one of: {', '.join(item.value for item in ReviewFocus)}.")
             return {"focus": focus}
+        if tool_name == "review_patch":
+            base = str(arguments.get("base", "")).strip()
+            raw_files = arguments.get("files", [])
+            if base and raw_files:
+                raise ValueError("`review_patch` accepts either `base` or `files`, not both.")
+            if raw_files and not isinstance(raw_files, list):
+                raise ValueError("`files` for tool `review_patch` must be a JSON array of repo-relative paths.")
+            files = [str(item).strip() for item in raw_files if str(item).strip()] if isinstance(raw_files, list) else []
+            if "files" in arguments and not files:
+                raise ValueError("`files` for tool `review_patch` cannot be empty.")
+            return {"base": base or None, "files": files or None}
         if tool_name == "assess_ship_readiness":
             baseline_label = str(arguments.get("baseline_label", "baseline")).strip() or "baseline"
             return {"baseline_label": baseline_label}

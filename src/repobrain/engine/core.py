@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from repobrain.config import RepoBrainConfig
+from repobrain.engine.patch_review import PatchReviewer
 from repobrain.engine.providers import build_provider_bundle, inspect_provider_status, tokenize
 from repobrain.engine.scanner import RepositoryScanner
 from repobrain.engine.store import MetadataStore
 from repobrain.models import (
     EditTarget,
     FileEvidence,
+    PatchReviewReport,
     QueryIntent,
     QueryPlan,
     QueryResult,
@@ -66,6 +68,7 @@ class RepoBrainEngine:
         self.store = MetadataStore(self.config)
         self.reviewer = ProjectReviewer(self.config, self.scanner)
         self.review_artifacts = ReviewArtifactsStore(self.config)
+        self.patch_reviewer = PatchReviewer(self.config, self.scanner, self.store, self.providers.embedder)
 
     def init_workspace(self, force: bool = False) -> dict[str, str]:
         self.config.state_path.mkdir(parents=True, exist_ok=True)
@@ -188,6 +191,9 @@ class RepoBrainEngine:
             "next_questions": result.next_questions,
             "plan_steps": result.plan.steps,
         }
+
+    def patch_review(self, base: str | None = None, files: list[str] | None = None) -> PatchReviewReport:
+        return self.patch_reviewer.review(base=base, files=files)
 
     def doctor(self) -> dict[str, object]:
         provider_status = inspect_provider_status(self.config)

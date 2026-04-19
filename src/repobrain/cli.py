@@ -79,6 +79,15 @@ def _parser() -> argparse.ArgumentParser:
     benchmark_parser.add_argument("--repo", default=None)
     _add_format_argument(benchmark_parser)
 
+    patch_review_parser = subparsers.add_parser(
+        "patch-review",
+        help="Review the current patch and surface adjacent files, tests, config touchpoints, and risk warnings.",
+    )
+    patch_review_parser.add_argument("--repo", default=None)
+    patch_review_parser.add_argument("--base", default=None)
+    patch_review_parser.add_argument("--files", nargs="+", default=None)
+    _add_format_argument(patch_review_parser)
+
     ship_parser = subparsers.add_parser("ship", help="Run the production-readiness gate across index health, review findings, providers, parsers, and benchmark.")
     ship_parser.add_argument("--repo", default=None)
     ship_parser.add_argument("--baseline-label", default="baseline")
@@ -360,6 +369,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     repo_root = resolve_repo_root(getattr(args, "repo", None), prefer_active=args.command != "init")
+    if args.command == "patch-review" and args.base and args.files:
+        parser.error("`patch-review` accepts either `--base` or `--files`, not both.")
+        return 2
 
     if args.command == "serve-mcp":
         return serve_mcp(str(repo_root))
@@ -400,6 +412,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "benchmark":
         _dump(engine.benchmark(), output_format)
+        return 0
+    if args.command == "patch-review":
+        _dump(engine.patch_review(base=args.base, files=args.files), output_format)
         return 0
     if args.command == "ship":
         _dump(engine.ship(baseline_label=args.baseline_label), output_format)

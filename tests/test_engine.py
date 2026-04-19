@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from repobrain.config import RepoBrainConfig
 from repobrain.engine.core import RepoBrainEngine
 from repobrain.engine.providers import ProviderBundle
 from repobrain.models import ReviewFocus
+
+
+def _git(repo_root: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo_root, check=True, capture_output=True, text=True)
 
 
 def _build_insecure_repo(repo_root: Path) -> Path:
@@ -309,3 +317,104 @@ def test_review_baseline_and_ship_gate_surface_drift(mixed_repo: Path) -> None:
     assert ship.history["saved_snapshots"] >= 1
     assert any(check.name == "benchmark" for check in ship.checks)
     assert ship.status in {"blocked", "caution", "ready"}
+
+
+def test_patch_review_working_tree_surfaces_adjacent_files_and_tests(patch_review_repo: Path) -> None:
+    engine = RepoBrainEngine(patch_review_repo)
+    engine.init_workspace(force=True)
+    engine.index_repository()
+
+    route_path = patch_review_repo / "backend" / "app" / "api" / "auth.py"
+    route_path.write_text(
+        route_path.read_text(encoding="utf-8")
+        + "\n\nasync def refresh_callback(code: str) -> dict[str, object]:\n"
+        + "    service = AuthService()\n"
+        + "    return await service.handle_google_callback(code, CALLBACK_URL, load_auth_settings())\n",
+        encoding="utf-8",
+    )
+    (patch_review_repo / "backend" / "app" / "config" / "oauth_callback.py").write_text(
+        "AUTH_CALLBACK_TIMEOUT = 30\n",
+        encoding="utf-8",
+    )
+
+    report = engine.patch_review()
+
+    changed_paths = {item.file_path for item in report.changed_files}
+    assert "backend/app/api/auth.py" in changed_paths
+    assert "backend/app/config/oauth_callback.py" in changed_paths
+    assert any(item.file_path.endswith("auth_service.py") for item in report.adjacent_files)
+    assert any(item.file_path.endswith("test_auth_flow.py") for item in report.suggested_tests)
+    assert report.summary
+    assert report.risk_label in {"moderate", "high"}
+
+
+def test_patch_review_base_mode_returns_committed_diff_only(patch_review_repo: Path) -> None:
+    _git(patch_review_repo, "checkout", "-b", "feature/patch-review")
+    service_path = patch_review_repo / "backend" / "app" / "services" / "auth_service.py"
+    service_path.write_text(
+        service_path.read_text(encoding="utf-8")
+        + "\n\ndef exchange_google_profile(code: str) -> dict[str, str]:\n    return {'code': code}\n",
+        encoding="utf-8",
+    )
+    _git(patch_review_repo, "add", ".")
+    _git(patch_review_repo, "commit", "-m", "extend auth service")
+
+    engine = RepoBrainEngine(patch_review_repo)
+    engine.init_workspace(force=True)
+    engine.index_repository()
+
+    report = engine.patch_review(base="main")
+
+    assert report.mode == "base"
+    assert report.base_ref == "main"
+    assert len(report.changed_files) == 1
+    assert report.changed_files[0].file_path == "backend/app/services/auth_service.py"
+    assert report.changed_files[0].status == "modified"
+
+
+def test_patch_review_file_list_mode_works_without_git(patch_review_repo: Path, tmp_path: Path) -> None:
+    repo_root = tmp_path / "nogit_patch_review_repo"
+    shutil.copytree(patch_review_repo, repo_root, ignore=shutil.ignore_patterns(".git"))
+
+    engine = RepoBrainEngine(repo_root)
+    engine.init_workspace(force=True)
+    engine.index_repository()
+
+    report = engine.patch_review(files=["backend/app/api/auth.py"])
+
+    assert report.mode == "files"
+    assert report.changed_files[0].file_path == "backend/app/api/auth.py"
+    assert report.changed_files[0].status == "selected"
+    assert report.changed_files[0].exists is True
+
+
+def test_patch_review_marks_deleted_files_as_missing(patch_review_repo: Path) -> None:
+    engine = RepoBrainEngine(patch_review_repo)
+    engine.init_workspace(force=True)
+    engine.index_repository()
+
+    _git(patch_review_repo, "rm", "backend/app/config/settings.py")
+
+    report = engine.patch_review()
+
+    deleted = next(item for item in report.changed_files if item.file_path == "backend/app/config/settings.py")
+    assert deleted.status == "deleted"
+    assert deleted.exists is False
+    assert deleted.supported is False
+
+
+def test_patch_review_rejects_invalid_base_ref(patch_review_repo: Path) -> None:
+    engine = RepoBrainEngine(patch_review_repo)
+    engine.init_workspace(force=True)
+    engine.index_repository()
+
+    with pytest.raises(ValueError, match="Invalid base ref"):
+        engine.patch_review(base="missing-base")
+
+
+def test_patch_review_requires_existing_index(patch_review_repo: Path) -> None:
+    engine = RepoBrainEngine(patch_review_repo)
+    engine.init_workspace(force=True)
+
+    with pytest.raises(RuntimeError, match="repobrain index"):
+        engine.patch_review()

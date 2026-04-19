@@ -170,6 +170,12 @@ def _provider_smoke_payload() -> tuple[str, dict[str, object]]:
     return str(repo_root), engine.provider_smoke()
 
 
+def _patch_review_payload(*, base: str | None = None, files: list[str] | None = None) -> tuple[str, dict[str, object]]:
+    repo_root, engine = _active_engine()
+    report = engine.patch_review(base=base, files=files)
+    return str(repo_root), report.to_dict()
+
+
 def _json_response(start_response, status: str, payload: dict[str, object]) -> list[bytes]:
     body = json.dumps(payload).encode("utf-8")
     start_response(status, [("Content-Type", "application/json; charset=utf-8")])
@@ -181,7 +187,7 @@ def _text_response(start_response, status: str, text: str, content_type: str = "
     return [text.encode("utf-8")]
 
 
-def _read_request_fields(environ) -> dict[str, str]:
+def _read_request_fields(environ) -> dict[str, object]:
     size = int(environ.get("CONTENT_LENGTH") or 0)
     if size <= 0:
         return {}
@@ -193,8 +199,31 @@ def _read_request_fields(environ) -> dict[str, str]:
         payload = json.loads(raw_body.decode("utf-8"))
         if not isinstance(payload, dict):
             return {}
-        return {str(key): str(value) for key, value in payload.items()}
+        return {str(key): value for key, value in payload.items()}
     return {key: values[0] for key, values in parse_qs(raw_body.decode("utf-8")).items()}
+
+
+def _text_field(fields: dict[str, object], name: str, default: str = "") -> str:
+    value = fields.get(name, default)
+    if isinstance(value, list):
+        if not value:
+            return default
+        value = value[0]
+    return str(value).strip()
+
+
+def _files_field(fields: dict[str, object], name: str = "files") -> list[str] | None:
+    value = fields.get(name)
+    if value is None:
+        return None
+    if isinstance(value, list):
+        files = [str(item).strip() for item in value if str(item).strip()]
+        return files or None
+    text = str(value).strip()
+    if not text:
+        return None
+    files = [line.strip() for line in text.splitlines() if line.strip()]
+    return files or None
 
 
 def _web_action_payload(
@@ -319,7 +348,7 @@ def _application(default_repo: str = ""):
             fields = _read_request_fields(environ)
             try:
                 if path == "/api/import":
-                    repo_text, message, result = _import_and_index(fields.get("repo_path", ""))
+                    repo_text, message, result = _import_and_index(_text_field(fields, "repo_path"))
                     payload = _web_action_payload(repo_text=repo_text, title="Import + Index", result=result, message=message)
                 elif path == "/api/index":
                     repo_text, result = _index_result()
@@ -342,8 +371,19 @@ def _application(default_repo: str = ""):
                         message="Provider smoke completed.",
                         data=data,
                     )
+                elif path == "/api/patch-review":
+                    base = _text_field(fields, "base") or None
+                    files = _files_field(fields, "files")
+                    repo_text, data = _patch_review_payload(base=base, files=files)
+                    payload = _web_action_payload(
+                        repo_text=repo_text,
+                        title="Patch Review",
+                        result=payload_to_text(data),
+                        message="Patch review completed.",
+                        data=data,
+                    )
                 elif path == "/api/workspace/use":
-                    project = fields.get("project", "").strip()
+                    project = _text_field(fields, "project")
                     if not project:
                         raise ValueError("Project selection is required.")
                     workspace = set_current_workspace_project(project)
@@ -361,7 +401,7 @@ def _application(default_repo: str = ""):
                         summary=summary,
                     )
                 elif path == "/api/workspace/remember":
-                    note = fields.get("note", "").strip()
+                    note = _text_field(fields, "note")
                     if not note:
                         raise ValueError("Note text is required.")
                     summary = remember_workspace_note(note)
@@ -388,8 +428,8 @@ def _application(default_repo: str = ""):
                         summary=summary,
                     )
                 elif path == "/api/query":
-                    query_text = fields.get("query", "").strip()
-                    mode = fields.get("mode", "query").strip() or "query"
+                    query_text = _text_field(fields, "query")
+                    mode = _text_field(fields, "mode", "query") or "query"
                     if not query_text:
                         raise ValueError("Query text is required.")
                     repo_text, title, action_data = _action_payload_result(mode, query_text)

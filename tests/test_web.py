@@ -230,6 +230,59 @@ def test_web_provider_smoke_api_renders_provider_smoke(mixed_repo: Path) -> None
     assert "pool" in payload["data"]["reranker_smoke"]
 
 
+def test_web_patch_review_api_supports_working_tree_and_files_mode(patch_review_repo: Path) -> None:
+    _import_and_index(str(patch_review_repo))
+    route_path = patch_review_repo / "backend" / "app" / "api" / "auth.py"
+    route_path.write_text(
+        route_path.read_text(encoding="utf-8") + "\n\nasync def web_patch_review() -> None:\n    return None\n",
+        encoding="utf-8",
+    )
+
+    app = _application(default_repo=str(patch_review_repo))
+    status_headers: dict[str, object] = {}
+
+    def start_response(status: str, headers: list[tuple[str, str]]) -> None:
+        status_headers["status"] = status
+        status_headers["headers"] = headers
+
+    working_tree_body = b"".join(
+        app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/api/patch-review",
+                "CONTENT_TYPE": "application/json",
+                "wsgi.input": io.BytesIO(b"{}"),
+                "CONTENT_LENGTH": "2",
+            },
+            start_response,
+        )
+    ).decode("utf-8")
+
+    working_tree_payload = json.loads(working_tree_body)
+    assert status_headers["status"] == "200 OK"
+    assert working_tree_payload["title"] == "Patch Review"
+    assert "RepoBrain Patch Review" in working_tree_payload["result"]
+    assert working_tree_payload["data"]["kind"] == "patch_review"
+
+    files_request = json.dumps({"files": ["backend/app/api/auth.py"]}).encode("utf-8")
+    files_body = b"".join(
+        app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/api/patch-review",
+                "CONTENT_TYPE": "application/json",
+                "wsgi.input": io.BytesIO(files_request),
+                "CONTENT_LENGTH": str(len(files_request)),
+            },
+            start_response,
+        )
+    ).decode("utf-8")
+
+    files_payload = json.loads(files_body)
+    assert status_headers["status"] == "200 OK"
+    assert files_payload["data"]["changed_files"][0]["file_path"] == "backend/app/api/auth.py"
+
+
 def test_web_workspace_use_memory_and_multi_query_flow(mixed_repo: Path, tmp_path: Path) -> None:
     second_repo = tmp_path / "sample_repo_two"
     shutil.copytree(mixed_repo, second_repo)

@@ -52,6 +52,24 @@ Output returns ranked files with rationales.
 
 Returns a compact payload meant for a planning agent that needs grounded edit targets without raw chunk noise.
 
+### `review_patch`
+
+Inputs:
+
+```json
+{}
+```
+
+```json
+{"base": "main"}
+```
+
+```json
+{"files": ["backend/app/api/auth.py", "backend/app/services/auth_service.py"]}
+```
+
+Reviews the current patch or an explicit file list and returns changed files, adjacent runtime files, suggested tests, config surfaces, warnings, and a patch risk label.
+
 ### `review_codebase`
 
 Input:

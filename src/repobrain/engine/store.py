@@ -258,6 +258,39 @@ class MetadataStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def get_related_edges(
+        self,
+        file_paths: list[str],
+        *,
+        targets: list[str] | None = None,
+        limit: int = 24,
+    ) -> list[dict[str, str | None]]:
+        normalized_paths = [str(item).strip() for item in file_paths if str(item).strip()]
+        normalized_targets = [str(item).strip() for item in (targets or []) if str(item).strip()]
+        if not normalized_paths and not normalized_targets:
+            return []
+
+        where_parts: list[str] = []
+        params: list[object] = []
+        if normalized_paths:
+            file_placeholders = ", ".join("?" for _ in normalized_paths)
+            where_parts.append(f"(source_file IN ({file_placeholders}) OR target_file IN ({file_placeholders}))")
+            params.extend(normalized_paths)
+            params.extend(normalized_paths)
+        if normalized_targets:
+            target_placeholders = ", ".join("?" for _ in normalized_targets)
+            where_parts.append(f"target IN ({target_placeholders})")
+            params.extend(normalized_targets)
+
+        query = (
+            "SELECT source_file, source_symbol, target, edge_type, target_file "
+            f"FROM edges WHERE {' OR '.join(where_parts)} ORDER BY id LIMIT ?"
+        )
+        params.append(limit)
+        with self.connect() as connection:
+            rows = connection.execute(query, tuple(params)).fetchall()
+        return [dict(row) for row in rows]
+
     def get_file_records(self, file_paths: list[str]) -> list[sqlite3.Row]:
         if not file_paths:
             return []

@@ -49,6 +49,7 @@ def test_mcp_server_exposes_workspace_tools(mixed_repo) -> None:
 
     tool_names = {tool["name"] for tool in server.list_tools()}
 
+    assert "review_patch" in tool_names
     assert "list_workspace_projects" in tool_names
     assert "switch_workspace_project" in tool_names
     assert "remember_repo_note" in tool_names
@@ -95,3 +96,22 @@ def test_mcp_workspace_search_returns_structured_comparison(mixed_repo: Path, tm
     assert "shared_hotspots" in payload["comparison"]
     assert "global_rank" in payload["results"][0]
     assert isinstance(payload["results"][0]["citations"], list)
+
+
+def test_mcp_review_patch_validates_and_returns_structured_payload(patch_review_repo: Path) -> None:
+    engine = RepoBrainEngine(patch_review_repo)
+    engine.init_workspace(force=True)
+    engine.index_repository()
+    server = RepoBrainMCPServer(engine)
+
+    payload = server._validate_tool_call("review_patch", {"files": ["backend/app/api/auth.py"]})
+    assert payload == {"base": None, "files": ["backend/app/api/auth.py"]}
+
+    with pytest.raises(ValueError, match="either `base` or `files`"):
+        server._validate_tool_call("review_patch", {"base": "main", "files": ["backend/app/api/auth.py"]})
+    with pytest.raises(ValueError, match="cannot be empty"):
+        server._validate_tool_call("review_patch", {"files": []})
+
+    result = server.tools["review_patch"].handler({"files": ["backend/app/api/auth.py"]})
+    assert result["kind"] == "patch_review"
+    assert result["changed_files"][0]["file_path"] == "backend/app/api/auth.py"

@@ -7,6 +7,7 @@ type QueryMode = "query" | "trace" | "impact" | "targets" | "multi";
 type ActionKind =
   | "import"
   | "index"
+  | "patch-review"
   | "review"
   | "ship"
   | "baseline"
@@ -214,7 +215,7 @@ type ActionPayload = {
   title: string;
   result: string;
   report_url?: string;
-  data?: DoctorData | ProviderSmokeData | WorkspaceQueryData | null;
+  data?: DoctorData | ProviderSmokeData | WorkspaceQueryData | Record<string, unknown> | null;
   workspace?: WorkspacePayload;
   summary?: WorkspaceSummary | null;
 };
@@ -248,6 +249,15 @@ const copy = {
     actionsHint:
       "Use Review for gaps, Ship Gate for a release verdict, Baseline for drift tracking, and Provider Smoke for direct model checks.",
     index: "Re-index active repo",
+    patchReview: "Patch review",
+    patchReviewTitle: "Patch review guardrail",
+    patchReviewHint:
+      "Review the current patch, compare against a base ref, or inspect an explicit file list without leaving the browser UI.",
+    patchBase: "Base ref",
+    patchBasePlaceholder: "main",
+    patchFiles: "Files",
+    patchFilesPlaceholder: "backend/app/api/auth.py\nbackend/app/services/auth_service.py",
+    patchReviewRun: "Run patch review",
     review: "Scan project review",
     ship: "Ship gate",
     baseline: "Save baseline",
@@ -363,6 +373,15 @@ const copy = {
     actionsHint:
       "Dung Review de xem gap, Ship Gate de xem verdict release, Baseline de track drift, va Provider Smoke de check model.",
     index: "Index lai repo active",
+    patchReview: "Patch review",
+    patchReviewTitle: "Guardrail cho patch",
+    patchReviewHint:
+      "Review patch hien tai, so sanh voi base ref, hoac inspect mot danh sach file ro rang ngay trong browser UI.",
+    patchBase: "Base ref",
+    patchBasePlaceholder: "main",
+    patchFiles: "Danh sach file",
+    patchFilesPlaceholder: "backend/app/api/auth.py\nbackend/app/services/auth_service.py",
+    patchReviewRun: "Chay patch review",
     review: "Quet project review",
     ship: "Ship gate",
     baseline: "Luu baseline",
@@ -521,6 +540,8 @@ function labelForAction(locale: Locale, action: ActionKind): string {
       return t.index;
     case "review":
       return t.review;
+    case "patch-review":
+      return t.patchReview;
     case "ship":
       return t.ship;
     case "baseline":
@@ -623,6 +644,8 @@ export function App() {
   const [repoPath, setRepoPath] = useState("");
   const [query, setQuery] = useState("Where is payment retry logic implemented?");
   const [mode, setMode] = useState<QueryMode>("query");
+  const [patchBase, setPatchBase] = useState("");
+  const [patchFiles, setPatchFiles] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [resultTitle, setResultTitle] = useState("");
@@ -741,6 +764,9 @@ export function App() {
     if (action === "import" || action === "index" || action === "workspace-use") {
       void refreshDoctorSnapshot();
     }
+    if (action === "patch-review") {
+      setPatchBase((current) => current.trim());
+    }
     if (action === "remember") {
       setNote("");
     }
@@ -791,6 +817,30 @@ export function App() {
       const queryAction: ActionKind =
         mode === "query" ? "query" : mode === "multi" ? "multi" : mode;
       applyPayload(queryAction, payload);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handlePatchReview(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      setBusy("patch-review");
+      const trimmedBase = patchBase.trim();
+      const files = patchFiles
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const payload = await readJson<ActionPayload>("/api/patch-review", {
+        method: "POST",
+        body: JSON.stringify({
+          base: files.length > 0 ? null : trimmedBase || null,
+          files: files.length > 0 ? files : null,
+        }),
+      });
+      applyPayload("patch-review", payload);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1026,6 +1076,32 @@ export function App() {
             </button>
           </form>
           <p className="muted-copy">{t.reportHint}</p>
+        </article>
+
+        <article className="panel-card">
+          <h2>{t.patchReviewTitle}</h2>
+          <form className="panel-form" onSubmit={handlePatchReview}>
+            <label htmlFor="patchBase">{t.patchBase}</label>
+            <input
+              id="patchBase"
+              placeholder={t.patchBasePlaceholder}
+              value={patchBase}
+              onChange={(event) => setPatchBase(event.target.value)}
+              disabled={!hasActiveRepo || patchFiles.trim().length > 0}
+            />
+            <label htmlFor="patchFiles">{t.patchFiles}</label>
+            <textarea
+              id="patchFiles"
+              placeholder={t.patchFilesPlaceholder}
+              value={patchFiles}
+              onChange={(event) => setPatchFiles(event.target.value)}
+              disabled={!hasActiveRepo}
+            />
+            <button className="primary-button" disabled={!hasActiveRepo || busy === "patch-review"} type="submit">
+              {busy === "patch-review" ? t.loading : t.patchReviewRun}
+            </button>
+          </form>
+          <p className="muted-copy">{t.patchReviewHint}</p>
         </article>
       </section>
 

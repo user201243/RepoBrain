@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from repobrain.engine.core import RepoBrainEngine
-from repobrain.models import QueryResult, ReviewReport, ShipReport
+from repobrain.models import FileEvidence, PatchReviewChange, PatchReviewReport, QueryResult, ReviewReport, ShipReport
 
 
 def payload_to_json(payload: object) -> str:
@@ -27,6 +27,8 @@ def payload_to_text(payload: object, *, styled: bool = False) -> str:
 def _payload_to_text_plain(payload: object) -> str:
     if isinstance(payload, QueryResult):
         return query_result_to_text(payload)
+    if isinstance(payload, PatchReviewReport):
+        return patch_review_to_text(payload)
     if isinstance(payload, ReviewReport):
         return review_to_text(payload)
     if isinstance(payload, ShipReport):
@@ -42,6 +44,66 @@ def _payload_to_text_plain(payload: object) -> str:
             return workspace_summary_to_text(payload)
         if payload.get("kind") == "workspace_query":
             return workspace_query_to_text(payload)
+        if payload.get("kind") == "patch_review":
+            return patch_review_to_text(
+                PatchReviewReport(
+                    repo_root=str(payload.get("repo_root", "")),
+                    mode=str(payload.get("mode", "")),
+                    base_ref=str(payload.get("base_ref")) if payload.get("base_ref") is not None else None,
+                    changed_files=[
+                        PatchReviewChange(
+                            file_path=str(item.get("file_path", "")),
+                            status=str(item.get("status", "")),
+                            exists=bool(item.get("exists")),
+                            supported=bool(item.get("supported")),
+                            language=str(item.get("language", "unknown")),
+                            role=str(item.get("role", "unknown")),
+                            previous_path=str(item.get("previous_path")) if item.get("previous_path") is not None else None,
+                            symbols=[str(symbol) for symbol in item.get("symbols", []) if str(symbol).strip()],
+                        )
+                        for item in payload.get("changed_files", [])
+                        if isinstance(item, dict)
+                    ],
+                    adjacent_files=[
+                        FileEvidence(
+                            file_path=str(item.get("file_path", "")),
+                            language=str(item.get("language", "unknown")),
+                            role=str(item.get("role", "unknown")),
+                            score=float(item.get("score", 0.0) or 0.0),
+                            reasons=[str(reason) for reason in item.get("reasons", []) if str(reason).strip()],
+                        )
+                        for item in payload.get("adjacent_files", [])
+                        if isinstance(item, dict)
+                    ],
+                    suggested_tests=[
+                        FileEvidence(
+                            file_path=str(item.get("file_path", "")),
+                            language=str(item.get("language", "unknown")),
+                            role=str(item.get("role", "unknown")),
+                            score=float(item.get("score", 0.0) or 0.0),
+                            reasons=[str(reason) for reason in item.get("reasons", []) if str(reason).strip()],
+                        )
+                        for item in payload.get("suggested_tests", [])
+                        if isinstance(item, dict)
+                    ],
+                    config_surfaces=[
+                        FileEvidence(
+                            file_path=str(item.get("file_path", "")),
+                            language=str(item.get("language", "unknown")),
+                            role=str(item.get("role", "unknown")),
+                            score=float(item.get("score", 0.0) or 0.0),
+                            reasons=[str(reason) for reason in item.get("reasons", []) if str(reason).strip()],
+                        )
+                        for item in payload.get("config_surfaces", [])
+                        if isinstance(item, dict)
+                    ],
+                    risk_score=float(payload.get("risk_score", 0.0) or 0.0),
+                    risk_label=str(payload.get("risk_label", "")),
+                    summary=str(payload.get("summary", "")),
+                    warnings=[str(item) for item in payload.get("warnings", []) if str(item).strip()],
+                    next_steps=[str(item) for item in payload.get("next_steps", []) if str(item).strip()],
+                )
+            )
         if payload.get("kind") == "demo_clean":
             return demo_clean_to_text(payload)
         if payload.get("kind") == "release_check":
@@ -261,6 +323,63 @@ def query_result_to_text(result: QueryResult) -> str:
         lines.extend(f"- {question}" for question in result.next_questions)
 
     lines.extend(["", "Tip: use --format json for machine-readable output."])
+    return "\n".join(lines)
+
+
+def patch_review_to_text(report: PatchReviewReport) -> str:
+    lines = [
+        "RepoBrain Patch Review",
+        f"Repo: {report.repo_root}",
+        f"Mode: {report.mode}",
+        f"Risk: {report.risk_score:.3f} ({report.risk_label})",
+    ]
+    if report.base_ref:
+        lines.append(f"Base ref: {report.base_ref}")
+    lines.extend(["", report.summary, "", "Changed files:"])
+    if report.changed_files:
+        for item in report.changed_files[:6]:
+            status_bits = [item.status]
+            if item.previous_path:
+                status_bits.append(f"from {item.previous_path}")
+            support = "supported" if item.supported else "unsupported"
+            lines.append(f"- {item.file_path} [{item.role}] {' | '.join(status_bits)} | {support}")
+            if item.symbols:
+                lines.append(f"  symbols: {', '.join(item.symbols[:4])}")
+    else:
+        lines.append("- No changed files detected.")
+
+    lines.extend(["", "Adjacent runtime files:"])
+    if report.adjacent_files:
+        for item in report.adjacent_files[:4]:
+            reasons = ", ".join(item.reasons[:4]) if item.reasons else "no explicit reasons"
+            lines.append(f"- {item.file_path} [{item.role}] score={item.score:.3f}")
+            lines.append(f"  reasons: {reasons}")
+    else:
+        lines.append("- No adjacent runtime files ranked.")
+
+    lines.extend(["", "Suggested tests:"])
+    if report.suggested_tests:
+        for item in report.suggested_tests[:4]:
+            lines.append(f"- {item.file_path} score={item.score:.3f}")
+    else:
+        lines.append("- No targeted tests surfaced.")
+
+    lines.extend(["", "Config surfaces:"])
+    if report.config_surfaces:
+        for item in report.config_surfaces[:4]:
+            lines.append(f"- {item.file_path} score={item.score:.3f}")
+    else:
+        lines.append("- No adjacent config surfaces ranked.")
+
+    if report.warnings:
+        lines.extend(["", "Warnings:"])
+        lines.extend(f"- {warning}" for warning in report.warnings[:5])
+
+    if report.next_steps:
+        lines.extend(["", "Next steps:"])
+        lines.extend(f"- {step}" for step in report.next_steps[:4])
+
+    lines.extend(["", "Tip: use `repobrain patch-review --format json` for machine-readable output."])
     return "\n".join(lines)
 
 

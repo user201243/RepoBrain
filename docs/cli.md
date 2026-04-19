@@ -77,6 +77,32 @@ Biases ranking toward affected files and dependency-central code.
 
 Biases ranking toward files that are safest to inspect or edit next.
 
+### `repobrain patch-review`
+
+Reviews the current patch instead of a natural-language question and returns:
+
+- changed files
+- adjacent runtime files
+- suggested tests
+- config surfaces
+- risk score, warnings, and next steps
+
+Examples:
+
+```bash
+repobrain patch-review --format text
+repobrain patch-review --base main --format text
+repobrain patch-review --files backend/app/api/auth.py backend/app/services/auth_service.py --format json
+```
+
+Rules:
+
+- default mode inspects the current git working tree against `HEAD`
+- `--base <ref>` reviews committed diff from `merge-base(<ref>, HEAD)...HEAD`
+- `--files <path...>` accepts repo-relative paths and works even outside git
+- `--base` and `--files` are mutually exclusive
+- the repo must already be indexed with `repobrain index`
+
 ### `repobrain benchmark`
 
 Runs the built-in benchmark queries against the current index and reports:
@@ -221,6 +247,7 @@ Current tool surface:
 - `analyze_impact`
 - `suggest_edit_targets`
 - `build_change_context`
+- `review_patch`
 - `review_codebase`
 - `assess_ship_readiness`
 - `list_workspace_projects`

@@ -161,6 +161,21 @@ class EditTarget:
 
 
 @dataclass(slots=True)
+class PatchReviewChange:
+    file_path: str
+    status: str
+    exists: bool
+    supported: bool
+    language: str
+    role: str
+    previous_path: str | None = None
+    symbols: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class QueryPlan:
     intent: QueryIntent
     steps: list[str]
@@ -287,4 +302,37 @@ class ShipReport:
             "review": self.review.to_dict() if self.review else None,
             "benchmark": self.benchmark,
             "history": self.history,
+        }
+
+
+@dataclass(slots=True)
+class PatchReviewReport:
+    repo_root: str
+    mode: str
+    base_ref: str | None
+    changed_files: list[PatchReviewChange] = field(default_factory=list)
+    adjacent_files: list[FileEvidence] = field(default_factory=list)
+    suggested_tests: list[FileEvidence] = field(default_factory=list)
+    config_surfaces: list[FileEvidence] = field(default_factory=list)
+    risk_score: float = 0.0
+    risk_label: str = ""
+    summary: str = ""
+    warnings: list[str] = field(default_factory=list)
+    next_steps: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": "patch_review",
+            "repo_root": self.repo_root,
+            "mode": self.mode,
+            "base_ref": self.base_ref,
+            "changed_files": [item.to_dict() for item in self.changed_files],
+            "adjacent_files": [item.to_dict() for item in self.adjacent_files],
+            "suggested_tests": [item.to_dict() for item in self.suggested_tests],
+            "config_surfaces": [item.to_dict() for item in self.config_surfaces],
+            "risk_score": round(self.risk_score, 3),
+            "risk_label": self.risk_label,
+            "summary": self.summary,
+            "warnings": self.warnings,
+            "next_steps": self.next_steps,
         }

@@ -116,6 +116,7 @@ repobrain index
 repobrain query "Where is payment retry logic implemented?"
 repobrain trace "Trace login with Google from route to service"
 repobrain targets "Which files should I edit to add GitHub login?"
+repobrain patch-review --format text
 repobrain ship --format text
 repobrain chat
 repobrain report --format text
@@ -130,6 +131,7 @@ repobrain review --format text
 repobrain baseline --format text
 repobrain index --format text
 repobrain query "Where is payment retry logic implemented?" --format text
+repobrain patch-review --base main --format text
 repobrain ship --format text
 repobrain report --open
 ```
@@ -143,7 +145,7 @@ repobrain serve-web --open
 Then paste the project path and click `Import + Index`.
 For the one-page audit flow, click `Scan Project Review`.
 The browser UI now ships as a React TSX frontend with English/Vietnamese interface labels, a light/dark theme toggle, and structured `doctor` / `provider-smoke` diagnostics cards.
-You can also switch tracked repos, save repo memory notes, and run cross-repo query mode from the same page.
+You can also switch tracked repos, save repo memory notes, run cross-repo query mode, and trigger `Patch Review` with either a base ref or an explicit file list from the same page.
 
 Windows PowerShell:
 
@@ -194,6 +196,7 @@ repobrain query "<question>"
 repobrain trace "<question>"
 repobrain impact "<question>"
 repobrain targets "<question>"
+repobrain patch-review
 repobrain benchmark
 repobrain ship
 repobrain doctor
@@ -215,6 +218,8 @@ repobrain serve-mcp
 ```
 
 For human-friendly terminal output, add `--format text` to `review`, `index`, `query`, `trace`, `impact`, `targets`, `benchmark`, `doctor`, `provider-smoke`, or `report`. JSON remains the default for agents and automation.
+
+`repobrain patch-review` reviews the current working tree by default, supports `--base <ref>` for committed diff review, and supports `--files <path...>` for explicit repo-relative patch slices.
 
 For release validation, run `repobrain release-check --format text` before packaging, then `repobrain release-check --require-dist --format text` after `python -m build` to confirm wheel/sdist artifacts include the React frontend assets.
 
