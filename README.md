@@ -143,6 +143,7 @@ repobrain serve-web --open
 Then paste the project path and click `Import + Index`.
 For the one-page audit flow, click `Scan Project Review`.
 The browser UI now ships as a React TSX frontend with English/Vietnamese interface labels, a light/dark theme toggle, and structured `doctor` / `provider-smoke` diagnostics cards.
+You can also switch tracked repos, save repo memory notes, and run cross-repo query mode from the same page.
 
 Windows PowerShell:
 
@@ -202,8 +203,12 @@ repobrain report
 repobrain report --open
 repobrain demo-clean --format text
 repobrain serve-web
+repobrain workspace add "<path>"
 repobrain workspace list
+repobrain workspace use "<project>"
 repobrain workspace summary
+repobrain workspace remember "<note>"
+repobrain workspace clear-notes
 repobrain quickstart
 repobrain release-check --format text
 repobrain serve-mcp

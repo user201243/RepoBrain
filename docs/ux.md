@@ -1,6 +1,6 @@
 # User Experience
 
-RepoBrain has three user surfaces:
+RepoBrain has four user surfaces:
 
 - terminal-first commands for developers and automation
 - one-click Windows launchers for people who do not want to memorize commands
@@ -84,6 +84,7 @@ repobrain workspace add /path/to/project --format text
 repobrain workspace list --format text
 repobrain workspace summary --format text
 repobrain workspace remember "auth callback is the critical flow" --format text
+repobrain workspace clear-notes --format text
 repobrain workspace use my-project --format text
 ```
 
@@ -154,8 +155,9 @@ Then:
 - click `Import + Index`
 - switch between tracked repos from the workspace panel
 - keep a short repo memory summary with manual notes and hot files
-- click `Scan Project Review` for the short audit pass
+- run `Doctor`, `Provider Smoke`, `Save Baseline`, or `Scan Project Review` from the action rail
 - run `query`, `trace`, `impact`, `targets`, or cross-repo query mode from the page
+- review the short in-page activity timeline for the latest actions
 - open the generated report from the same UI
 
 ## Recommended New-User Flow

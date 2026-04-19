@@ -2,7 +2,7 @@
 
 ## Public Surface
 
-RepoBrain exposes three public contract layers:
+RepoBrain exposes four public contract layers:
 
 1. CLI commands
 2. MCP-style tools over stdio JSON
@@ -68,8 +68,10 @@ Behavior:
 - serves JSON API routes under `/api/*`
 - serves React build assets from `webapp/dist/`
 - import action runs init + index in one step
-- query action dispatches to `query`, `trace`, `impact`, or `targets`
+- query action dispatches to `query`, `trace`, `impact`, `targets`, or workspace-wide `multi`
 - `GET /api/doctor` and `POST /api/provider-smoke` return both the text `result` and a structured `data` payload for the React diagnostics panels
+- `GET /api/workspace` returns tracked repos plus the current summary snapshot
+- `POST /api/workspace/use`, `POST /api/workspace/remember`, and `POST /api/workspace/clear-notes` mutate shared workspace state for the browser UI
 - report route serves the generated local report HTML
 
 ### `repobrain query|trace|impact|targets`
@@ -339,9 +341,89 @@ Returns a compact subset intended for planning agents:
 }
 ```
 
+### `review_codebase`
+
+Arguments:
+
+```json
+{"focus": "full"}
+```
+
+Returns the review report schema. `focus` accepts the same values as CLI review mode such as `full`, `security`, `production`, or `quality`.
+
+### `assess_ship_readiness`
+
+Arguments:
+
+```json
+{"baseline_label": "baseline"}
+```
+
+Returns the ship/readiness report schema and accepts an optional baseline label for drift comparison.
+
+### `list_workspace_projects`
+
+Arguments:
+
+```json
+{}
+```
+
+Returns tracked repos, the active repo, and each repo's compact memory summary.
+
+### `track_workspace_project`
+
+Arguments:
+
+```json
+{"repo": "/path/to/project", "activate": true}
+```
+
+Tracks another repo and can make it active immediately for the current MCP session.
+
+### `switch_workspace_project`
+
+Arguments:
+
+```json
+{"project": "my-project"}
+```
+
+Switches the active tracked repo for both the MCP session and shared workspace registry.
+
+### `read_repo_memory`
+
+Arguments:
+
+```json
+{"project": "my-project"}
+```
+
+Returns the stored repo summary for the active repo or an explicitly selected tracked repo.
+
+### `remember_repo_note`
+
+Arguments:
+
+```json
+{"note": "Auth callback is the critical integration thread.", "project": "my-project"}
+```
+
+Stores a manual note inside repo memory so later queries can reuse that thread.
+
+### `search_workspace`
+
+Arguments:
+
+```json
+{"query": "Where is auth callback handled across my repos?", "context": "focus on oauth and callback flows"}
+```
+
+Runs the same grounded query across every tracked repo, applies workspace-wide citation ranking, and then groups the best evidence back by project.
+
 ### `chat`
 
-`repobrain chat` is a CLI-only interactive mode. It is not part of the MCP tool surface. It dispatches plain text to `query` and slash commands to `trace`, `impact`, `targets`, `doctor`, or `index`.
+`repobrain chat` is a CLI-only interactive mode. It is not part of the MCP tool surface. Plain text maps to `query`, while slash commands expose trace/impact/targets, diagnostics, workspace routing, memory helpers, and output-mode switching.
 
 ## Storage Contract
 

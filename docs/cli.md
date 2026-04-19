@@ -117,6 +117,19 @@ Supports `--format text` and `--format json`.
 
 Starts a local interactive loop. Chat uses text summaries by default. Plain questions run through `query`; slash commands select specific harness modes:
 
+- `/summary`
+- `/remember <note>`
+- `/remember clear`
+- `/projects`
+- `/add <path>`
+- `/use <repo>`
+- `/multi <question>`
+- `/focus <topic>`
+- `/focus`
+- `/focus clear`
+- `/query <question>`
+- `/evidence <question>`
+- `/map <question>`
 - `/trace <question>`
 - `/impact <question>`
 - `/targets <question>`
@@ -124,10 +137,27 @@ Starts a local interactive loop. Chat uses text summaries by default. Plain ques
 - `/provider-smoke`
 - `/index`
 - `/review`
+- `/baseline`
+- `/ship`
 - `/report`
 - `/json`
 - `/text`
 - `/exit`
+
+### `repobrain workspace`
+
+Manages tracked repos and persisted repo memory outside the interactive chat loop.
+
+Subcommands:
+
+- `repobrain workspace list`
+- `repobrain workspace add /path/to/project`
+- `repobrain workspace use my-project`
+- `repobrain workspace summary [project]`
+- `repobrain workspace remember "auth callback is the critical flow"`
+- `repobrain workspace clear-notes`
+
+Use this group when you want to keep a lightweight multi-repo registry and carry a few durable notes, hot files, warnings, and follow-up threads between CLI chat, browser UI, and MCP usage.
 
 ### `repobrain report`
 
@@ -181,7 +211,9 @@ repobrain demo-clean --keep-dist --include-state --format text
 
 ### `repobrain serve-mcp`
 
-Runs a stdio JSON transport with six tools:
+Runs a stdio JSON transport for grounded query, review, ship, and workspace flows.
+
+Current tool surface:
 
 - `index_repository`
 - `search_codebase`
@@ -189,6 +221,16 @@ Runs a stdio JSON transport with six tools:
 - `analyze_impact`
 - `suggest_edit_targets`
 - `build_change_context`
+- `review_codebase`
+- `assess_ship_readiness`
+- `list_workspace_projects`
+- `track_workspace_project`
+- `switch_workspace_project`
+- `read_repo_memory`
+- `remember_repo_note`
+- `search_workspace`
+
+For the JSON request/response shape, see [mcp.md](mcp.md).
 
 ### `repobrain serve-web`
 
@@ -204,10 +246,13 @@ The page lets you:
 - paste a project path
 - click `Import + Index`
 - click `Scan Project Review` for the one-page audit view
-- run `query`, `trace`, `impact`, or `targets`
+- run `query`, `trace`, `impact`, `targets`, or cross-repo mode
+- switch between tracked repos without leaving the page
+- store or clear short repo memory notes
 - switch the interface between English and Vietnamese
 - switch the interface between light and dark themes
 - inspect structured `doctor` and `provider-smoke` posture cards without leaving the page
+- save a baseline or run the ship gate from the action panel
 - open the local report
 - reuse the active repo without repeating the path
 

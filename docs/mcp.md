@@ -52,6 +52,26 @@ Output returns ranked files with rationales.
 
 Returns a compact payload meant for a planning agent that needs grounded edit targets without raw chunk noise.
 
+### `review_codebase`
+
+Input:
+
+```json
+{"focus": "full"}
+```
+
+Runs the repo review pass and returns the same structured review payload used by the CLI.
+
+### `assess_ship_readiness`
+
+Input:
+
+```json
+{"baseline_label": "baseline"}
+```
+
+Runs the ship gate and compares current readiness against the selected baseline label when one exists.
+
 ### `list_workspace_projects`
 
 Returns the tracked RepoBrain workspace plus the active repo.
@@ -78,6 +98,12 @@ Switches the active repo for the MCP session and the shared workspace registry.
 
 ### `read_repo_memory`
 
+Input:
+
+```json
+{"project": "my-project"}
+```
+
 Returns the persisted summary memory for the active repo or a selected tracked repo.
 
 ### `remember_repo_note`
@@ -85,7 +111,7 @@ Returns the persisted summary memory for the active repo or a selected tracked r
 Input:
 
 ```json
-{"note": "Auth callback is the critical integration thread."}
+{"note": "Auth callback is the critical integration thread.", "project": "my-project"}
 ```
 
 Stores a manual note inside the repo memory so later queries can reuse the thread.
@@ -95,7 +121,7 @@ Stores a manual note inside the repo memory so later queries can reuse the threa
 Input:
 
 ```json
-{"query": "Where is auth callback handled across my repos?"}
+{"query": "Where is auth callback handled across my repos?", "context": "focus on oauth callbacks"}
 ```
 
 Fans a grounded query out across every tracked repo, ranks the strongest citations across the whole workspace, and then groups the best evidence back by project.

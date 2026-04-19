@@ -89,10 +89,20 @@ repobrain chat
 
 Useful chat commands:
 
+- `/summary`
+- `/remember <note>`
+- `/projects`
+- `/add <path>`
+- `/use <repo>`
+- `/multi <question>`
 - `/trace <question>`
 - `/impact <question>`
 - `/targets <question>`
 - `/doctor`
+- `/provider-smoke`
+- `/review`
+- `/baseline`
+- `/ship`
 - `/index`
 - `/report`
 - `/json`
@@ -139,8 +149,10 @@ Web import flow:
 1. Paste the project path into the form.
 2. Click `Import + Index`.
 3. Wait for indexing to finish.
-4. Ask grounded questions from the same page.
-5. Open the report directly from the browser UI when needed.
+4. Switch tracked repos or store a short repo memory note if you want to keep the thread.
+5. Ask grounded questions, or switch to cross-repo mode to compare evidence across tracked projects.
+6. Run `Doctor`, `Provider Smoke`, `Save Baseline`, or `Scan Project Review` from the action panel.
+7. Open the report directly from the browser UI when needed.
 
 This UI is local-only. It does not upload source code or require a hosted backend.
 
@@ -167,6 +179,14 @@ This starts a stdio JSON transport for tools such as:
 - `analyze_impact`
 - `suggest_edit_targets`
 - `build_change_context`
+- `review_codebase`
+- `assess_ship_readiness`
+- `list_workspace_projects`
+- `track_workspace_project`
+- `switch_workspace_project`
+- `read_repo_memory`
+- `remember_repo_note`
+- `search_workspace`
 
 Security note:
 
