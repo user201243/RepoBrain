@@ -13,6 +13,7 @@ type ActionKind =
   | "baseline"
   | "provider-smoke"
   | "doctor"
+  | "gemini-config"
   | "query"
   | "trace"
   | "impact"
@@ -284,6 +285,16 @@ const copy = {
     ship: "Ship gate",
     baseline: "Save baseline",
     providerSmoke: "Provider smoke",
+    geminiSetup: "Gemini setup",
+    geminiSetupHint:
+      "Save a Gemini API key and model pool into the active repo for Docker or local runs.",
+    geminiApiKey: "Gemini API key",
+    geminiApiKeyPlaceholder: "AIza...",
+    geminiModelPool: "Gemini model pool",
+    geminiModelPoolPlaceholder: "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3-flash-preview",
+    useGeminiEmbedding: "Use Gemini embedding",
+    useGeminiReranker: "Use Gemini reranker",
+    saveGeminiConfig: "Save Gemini config",
     doctor: "Doctor",
     openReport: "Open report",
     queryTitle: "Grounded question",
@@ -426,6 +437,16 @@ const copy = {
     ship: "Ship gate",
     baseline: "Luu baseline",
     providerSmoke: "Smoke provider",
+    geminiSetup: "Cau hinh Gemini",
+    geminiSetupHint:
+      "Luu Gemini API key va model pool vao repo active de chay bang Docker hoac local.",
+    geminiApiKey: "Gemini API key",
+    geminiApiKeyPlaceholder: "AIza...",
+    geminiModelPool: "Pool model Gemini",
+    geminiModelPoolPlaceholder: "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3-flash-preview",
+    useGeminiEmbedding: "Dung embedding Gemini",
+    useGeminiReranker: "Dung reranker Gemini",
+    saveGeminiConfig: "Luu cau hinh Gemini",
     doctor: "Doctor",
     openReport: "Mo report",
     queryTitle: "Cau hoi grounded",
@@ -608,6 +629,8 @@ function labelForAction(locale: Locale, action: ActionKind): string {
       return t.providerSmoke;
     case "doctor":
       return t.doctor;
+    case "gemini-config":
+      return t.geminiSetup;
     case "workspace-use":
       return t.useRepo;
     case "remember":
@@ -705,6 +728,10 @@ export function App() {
   const [patchBase, setPatchBase] = useState("");
   const [patchFiles, setPatchFiles] = useState("");
   const [note, setNote] = useState("");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [geminiModelPool, setGeminiModelPool] = useState("gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3-flash-preview");
+  const [geminiUseEmbedding, setGeminiUseEmbedding] = useState(true);
+  const [geminiUseReranker, setGeminiUseReranker] = useState(true);
   const [message, setMessage] = useState("");
   const [resultTitle, setResultTitle] = useState("");
   const [resultBody, setResultBody] = useState("");
@@ -830,6 +857,10 @@ export function App() {
     if (action === "remember") {
       setNote("");
     }
+    if (action === "gemini-config") {
+      setGeminiApiKey("");
+      void refreshDoctorSnapshot();
+    }
   }
 
   async function runAction(action: "index" | "review" | "ship" | "baseline" | "provider-smoke" | "doctor") {
@@ -947,6 +978,28 @@ export function App() {
         body: JSON.stringify({}),
       });
       applyPayload("clear-notes", payload);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleGeminiConfig(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      setBusy("gemini-config");
+      const payload = await readJson<ActionPayload>("/api/providers/gemini", {
+        method: "POST",
+        body: JSON.stringify({
+          api_key: geminiApiKey,
+          model_pool: geminiModelPool,
+          use_embedding: geminiUseEmbedding,
+          use_reranker: geminiUseReranker,
+          rerank_model: geminiModelPool.split(",").map((item) => item.trim()).filter(Boolean)[0] || "gemini-2.5-flash",
+        }),
+      });
+      applyPayload("gemini-config", payload);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1416,6 +1469,59 @@ export function App() {
               {t.lastSync}: {formatTimestamp(locale, smokeSyncAt)}
             </span>
           </div>
+
+          <form className="subpanel-card inset provider-config-form" onSubmit={handleGeminiConfig}>
+            <div className="subpanel-head">
+              <div>
+                <h3>{t.geminiSetup}</h3>
+                <p>{t.geminiSetupHint}</p>
+              </div>
+              <span className="mini-pill">Docker</span>
+            </div>
+            <div className="panel-form">
+              <label htmlFor="geminiApiKey">{t.geminiApiKey}</label>
+              <input
+                id="geminiApiKey"
+                type="password"
+                autoComplete="off"
+                placeholder={t.geminiApiKeyPlaceholder}
+                value={geminiApiKey}
+                onChange={(event) => setGeminiApiKey(event.target.value)}
+                disabled={!hasActiveRepo}
+              />
+              <label htmlFor="geminiModelPool">{t.geminiModelPool}</label>
+              <input
+                id="geminiModelPool"
+                placeholder={t.geminiModelPoolPlaceholder}
+                value={geminiModelPool}
+                onChange={(event) => setGeminiModelPool(event.target.value)}
+                disabled={!hasActiveRepo}
+              />
+              <div className="toggle-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={geminiUseEmbedding}
+                    onChange={(event) => setGeminiUseEmbedding(event.target.checked)}
+                    disabled={!hasActiveRepo}
+                  />
+                  <span>{t.useGeminiEmbedding}</span>
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={geminiUseReranker}
+                    onChange={(event) => setGeminiUseReranker(event.target.checked)}
+                    disabled={!hasActiveRepo}
+                  />
+                  <span>{t.useGeminiReranker}</span>
+                </label>
+              </div>
+              <button className="primary-button" disabled={!hasActiveRepo || busy === "gemini-config"} type="submit">
+                {busy === "gemini-config" ? t.loading : t.saveGeminiConfig}
+              </button>
+            </div>
+          </form>
 
           <div className="subpanel-card inset">
             <div className="subpanel-head">

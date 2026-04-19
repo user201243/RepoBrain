@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 
 import repobrain.web as web_module
+from repobrain.config import RepoBrainConfig
 from repobrain.models import ReadinessCheck, ReviewFocus, ReviewReport, ShipReport
 from repobrain.ux import _report_html
 from repobrain.web import (
@@ -261,6 +262,51 @@ def test_web_provider_smoke_api_renders_provider_smoke(mixed_repo: Path) -> None
     assert "RepoBrain Provider Smoke" in payload["result"]
     assert payload["data"]["embedding_smoke"]["status"] == "pass"
     assert "pool" in payload["data"]["reranker_smoke"]
+
+
+def test_web_gemini_config_api_writes_env_and_provider_config(mixed_repo: Path, monkeypatch) -> None:
+    _import_and_index(str(mixed_repo))
+    app = _application(default_repo=str(mixed_repo))
+    status_headers: dict[str, object] = {}
+
+    def start_response(status: str, headers: list[tuple[str, str]]) -> None:
+        status_headers["status"] = status
+        status_headers["headers"] = headers
+
+    request = json.dumps(
+        {
+            "api_key": "test-gemini-key",
+            "model_pool": "gemini-2.5-flash,gemini-3-flash-preview",
+            "use_embedding": True,
+            "use_reranker": True,
+        }
+    ).encode("utf-8")
+    body = b"".join(
+        app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/api/providers/gemini",
+                "CONTENT_TYPE": "application/json",
+                "wsgi.input": io.BytesIO(request),
+                "CONTENT_LENGTH": str(len(request)),
+            },
+            start_response,
+        )
+    ).decode("utf-8")
+
+    payload = json.loads(body)
+    config = RepoBrainConfig.load(mixed_repo)
+
+    assert status_headers["status"] == "200 OK"
+    assert payload["title"] == "Gemini Config"
+    assert payload["data"]["kind"] == "gemini_config"
+    assert payload["data"]["api_key_saved"] is True
+    assert "test-gemini-key" not in payload["result"]
+    assert (mixed_repo / ".env").read_text(encoding="utf-8").splitlines()[0] == "GEMINI_API_KEY=test-gemini-key"
+    assert config.providers.embedding == "gemini"
+    assert config.providers.reranker == "gemini"
+    assert config.providers.options["gemini_models"] == ["gemini-2.5-flash", "gemini-3-flash-preview"]
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
 
 def test_web_patch_review_api_supports_working_tree_and_files_mode(patch_review_repo: Path) -> None:

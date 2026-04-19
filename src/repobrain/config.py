@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -20,6 +21,16 @@ def _strip_env_value(value: str) -> str:
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
         return value[1:-1]
     return value
+
+
+def _toml_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
+    return json.dumps(str(value))
 
 
 def load_env_file(repo_root: str | Path) -> Path | None:
@@ -173,29 +184,36 @@ class RepoBrainConfig:
         if self.config_path.exists() and not force:
             return self.config_path
 
+        provider_lines = [
+            "[providers]",
+            f'embedding = "{self.providers.embedding}"',
+            f'reranker = "{self.providers.reranker}"',
+        ]
+        provider_lines.extend(
+            f"{key} = {_toml_value(value)}"
+            for key, value in sorted(self.providers.options.items())
+        )
         self.config_path.write_text(
             "\n".join(
                 [
                     "[project]",
-                    f'name = "{self.project.name}"',
-                    f'repo_roots = {self.project.repo_roots!r}',
-                    f'state_dir = "{self.project.state_dir}"',
+                    f"name = {_toml_value(self.project.name)}",
+                    f"repo_roots = {_toml_value(self.project.repo_roots)}",
+                    f"state_dir = {_toml_value(self.project.state_dir)}",
                     f"context_budget = {self.project.context_budget}",
                     "",
                     "[indexing]",
-                    f"include = {self.indexing.include!r}",
-                    f"exclude = {self.indexing.exclude!r}",
+                    f"include = {_toml_value(self.indexing.include)}",
+                    f"exclude = {_toml_value(self.indexing.exclude)}",
                     f"max_file_size_bytes = {self.indexing.max_file_size_bytes}",
                     f"chunk_max_lines = {self.indexing.chunk_max_lines}",
                     f"chunk_overlap_lines = {self.indexing.chunk_overlap_lines}",
                     "",
                     "[parsing]",
                     f"prefer_tree_sitter = {str(self.parsing.prefer_tree_sitter).lower()}",
-                    f"tree_sitter_languages = {self.parsing.tree_sitter_languages!r}",
+                    f"tree_sitter_languages = {_toml_value(self.parsing.tree_sitter_languages)}",
                     "",
-                    "[providers]",
-                    f'embedding = "{self.providers.embedding}"',
-                    f'reranker = "{self.providers.reranker}"',
+                    *provider_lines,
                 ]
             )
             + "\n",

@@ -1,0 +1,42 @@
+services:
+  repobrain-web:
+    build:
+      context: .
+    image: repobrain:local
+    command: web
+    ports:
+      - "${REPOBRAIN_WEB_PORT:-8765}:8765"
+    environment:
+      REPOBRAIN_REPO: /workspace
+      REPOBRAIN_WEB_HOST: 0.0.0.0
+      REPOBRAIN_WEB_PORT: 8765
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      REPOBRAIN_GEMINI_EMBEDDING_MODEL: ${REPOBRAIN_GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      REPOBRAIN_GEMINI_OUTPUT_DIMENSIONALITY: ${REPOBRAIN_GEMINI_OUTPUT_DIMENSIONALITY:-768}
+      REPOBRAIN_GEMINI_TASK_TYPE: ${REPOBRAIN_GEMINI_TASK_TYPE:-SEMANTIC_SIMILARITY}
+      REPOBRAIN_GEMINI_RERANK_MODEL: ${REPOBRAIN_GEMINI_RERANK_MODEL:-gemini-2.5-flash}
+      GEMINI_MODELS: ${GEMINI_MODELS:-gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3-flash-preview}
+    volumes:
+      - .:/workspace
+    stdin_open: true
+    tty: true
+
+  repobrain-cli:
+    profiles:
+      - cli
+    build:
+      context: .
+    image: repobrain:local
+    command: cli
+    environment:
+      REPOBRAIN_REPO: /workspace
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      REPOBRAIN_GEMINI_EMBEDDING_MODEL: ${REPOBRAIN_GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      REPOBRAIN_GEMINI_OUTPUT_DIMENSIONALITY: ${REPOBRAIN_GEMINI_OUTPUT_DIMENSIONALITY:-768}
+      REPOBRAIN_GEMINI_TASK_TYPE: ${REPOBRAIN_GEMINI_TASK_TYPE:-SEMANTIC_SIMILARITY}
+      REPOBRAIN_GEMINI_RERANK_MODEL: ${REPOBRAIN_GEMINI_RERANK_MODEL:-gemini-2.5-flash}
+      GEMINI_MODELS: ${GEMINI_MODELS:-gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3-flash-preview}
+    volumes:
+      - .:/workspace
+    stdin_open: true
+    tty: true

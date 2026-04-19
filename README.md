@@ -175,6 +175,37 @@ See the full run guide in [docs-for-repobrain/docs/run.md](docs-for-repobrain/do
 
 Frontend source for the browser UI lives in `webapp/`. The built local assets are generated into `webapp/dist/`, and `repobrain serve-web` serves that React build directly. If `webapp/dist/` is missing, run `npm run build` inside `webapp/` once before starting the Python web server.
 
+### Docker
+
+Build the local image:
+
+```powershell
+docker build -t repobrain:local .
+```
+
+Run the web UI:
+
+```powershell
+docker run --rm -it -p 8765:8765 -v ${PWD}:/workspace repobrain:local web
+```
+
+Run the CLI/chat:
+
+```powershell
+docker run --rm -it -v ${PWD}:/workspace repobrain:local cli
+```
+
+Docker Compose shortcuts:
+
+```powershell
+docker compose up --build repobrain-web
+docker compose --profile cli run --rm repobrain-cli
+```
+
+The web UI includes a Gemini setup panel. After importing a project, paste `GEMINI_API_KEY`, keep or edit the Gemini model pool, and save. RepoBrain writes `.env` and `repobrain.toml` inside the mounted project so Docker and local runs share the same provider setup.
+
+See [docs-for-repobrain/docs/docker.md](docs-for-repobrain/docs/docker.md).
+
 There is also a separate human-friendly documentation frontend in `docs-for-repobrain/` for onboarding, repo reading, and demo prep:
 
 ```bash
@@ -333,6 +364,7 @@ Start from `.env.example` and fill `GEMINI_API_KEY`.
 
 - [Vision](docs-for-repobrain/docs/vision.md)
 - [Install Guide](docs-for-repobrain/docs/install.md)
+- [Docker Setup](docs-for-repobrain/docs/docker.md)
 - [Product Spec](docs-for-repobrain/docs/product-spec.md)
 - [Production Readiness](docs-for-repobrain/docs/production-readiness.md)
 - [Release Checklist](docs-for-repobrain/docs/release-checklist.md)
@@ -352,6 +384,7 @@ Start from `.env.example` and fill `GEMINI_API_KEY`.
 - [Self Review](docs-for-repobrain/docs/self-review.md)
 - [Vietnamese Review](docs-for-repobrain/docs/review-vi.md)
 - [Roadmap](docs-for-repobrain/docs/roadmap.md)
+- [Model Provider Roadmap](docs-for-repobrain/docs/model-provider-roadmap.md)
 - [Feature Direction](feat.md)
 - [Security Policy](SECURITY.md)
 - [Repo Rules](RULES.md)

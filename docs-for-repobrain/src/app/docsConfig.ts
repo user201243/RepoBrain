@@ -21,7 +21,7 @@ export const defaultLocale = 'en'
 export const defaultTheme: Theme = 'dark'
 export const defaultDocId = docsLibrary.find((entry) => entry.id === 'install')?.id ?? docsLibrary[0]?.id ?? ''
 export const githubRepoUrl = 'https://github.com/hieuchaydi/RepoBrain'
-export const quickstartDocIds = ['install', 'run', 'config']
+export const quickstartDocIds = ['install', 'docker', 'run', 'config']
 
 export const chromeUi = {
   navigation: t('Documentation navigation', 'Điều hướng tài liệu', '文档导航'),
@@ -81,7 +81,7 @@ export const docsNavItems: DocsNavItem[] = [
   {
     id: 'reference',
     label: t('Reference', 'Tham chiếu', '参考'),
-    docIds: ['cli', 'contracts', 'architecture', 'mcp'],
+    docIds: ['cli', 'docker', 'contracts', 'architecture', 'mcp'],
   },
   {
     id: 'resources',
@@ -99,7 +99,7 @@ export const docsSidebarGroups: DocsSidebarGroup[] = [
   {
     id: 'get-started',
     label: t('Get started', 'Bắt đầu', '开始'),
-    docIds: ['vision', 'install', 'run', 'cli', 'config'],
+    docIds: ['vision', 'install', 'docker', 'run', 'cli', 'config'],
   },
   {
     id: 'use-repobrain',
@@ -120,6 +120,7 @@ export const docsSidebarGroups: DocsSidebarGroup[] = [
       'implementation-plan',
       'backlog',
       'self-review',
+      'model-provider-roadmap',
       'review-vi',
       'hidemium-chatbot-plan',
       'gemini-fallback-handoff',

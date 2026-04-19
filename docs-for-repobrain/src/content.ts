@@ -1332,6 +1332,20 @@ export const docsLibrary: DocEntry[] = [
     content: repoDoc('run.md'),
   },
   {
+    id: 'docker',
+    title: t('Docker Setup', 'Docker setup', 'Docker setup'),
+    eyebrow: t('Container workflow', 'Container workflow', 'Container workflow'),
+    path: 'docs-for-repobrain/docs/docker.md',
+    summary: t(
+      'How to run RepoBrain as a Docker web UI or interactive CLI, including Gemini setup from the browser.',
+      'Cach chay RepoBrain bang Docker web UI hoac CLI, kem cau hinh Gemini tu browser.',
+      'How to run RepoBrain with Docker web UI or CLI, including Gemini setup.',
+    ),
+    audience: t('Operators and Docker users', 'Nguoi dung Docker', 'Docker users'),
+    tags: ['docker', 'setup', 'gemini'],
+    content: repoDoc('docker.md'),
+  },
+  {
     id: 'cli',
     title: t('CLI Reference', 'Tham chiếu CLI', 'CLI 参考'),
     eyebrow: t('Command surface', 'Bề mặt lệnh', '命令表面'),
@@ -1582,6 +1596,20 @@ export const docsLibrary: DocEntry[] = [
     audience: t('Maintainers and reviewers', 'Maintainer và reviewer', '维护者与评审者'),
     tags: ['review', 'risks', 'debt'],
     content: repoDoc('self-review.md'),
+  },
+  {
+    id: 'model-provider-roadmap',
+    title: t('Model Provider Roadmap', 'Lo trinh model provider', 'Model provider roadmap'),
+    eyebrow: t('Next provider work', 'Provider tiep theo', 'Next provider work'),
+    path: 'docs-for-repobrain/docs/model-provider-roadmap.md',
+    summary: t(
+      'Follow-up plan for expanding model providers, starting with Groq model selection.',
+      'Ke hoach tiep theo de mo rong provider, bat dau voi Groq model selection.',
+      'Follow-up plan for expanding model providers, starting with Groq.',
+    ),
+    audience: t('Maintainers planning provider work', 'Maintainer lap ke hoach provider', 'Provider maintainers'),
+    tags: ['providers', 'groq', 'roadmap'],
+    content: repoDoc('model-provider-roadmap.md'),
   },
   {
     id: 'review-vi',
